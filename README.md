@@ -5,7 +5,7 @@
 **Universidade São Francisco**  
 **Prof. Ricardo Primi**
 
-<img src="img/usf.jpg" width="160"/>  
+<img src="img/usf.jpg" width="160"/>
 
 ### Objetivo
 
@@ -39,7 +39,7 @@ Faremos quatro exercícios durante o semestre. Será solicitado que você faça 
 ### Cronograma
 
 |     | **Dia** | **Conteúdo**                                                              | **Leituras / Exercícios** |
-|-------------|-------------|---------------------------------|-------------|
+|---------------|---------------|-----------------------------|---------------|
 | 1   | 7/03    | Aula inaugural do programa de Pós                                         |                           |
 | 2   | 14/03   | Introdução a inteligência artificial e Processamento de linguagem natural |                           |
 | 3   | 21/03   | Fundamentos das redes neurais.                                            | Textos 1                  |

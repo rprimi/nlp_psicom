@@ -38,23 +38,23 @@ Faremos quatro exercícios durante o semestre. Será solicitado que você faça 
 
 ### Cronograma
 
-|     | **Dia** | **Conteúdo**                                                              | **Leituras / Exercícios** |
-|---------------|---------------|-----------------------------|---------------|
-| 1   | 7/03    | Aula inaugural do programa de Pós                                         |                           |
-| 2   | 14/03   | Introdução a inteligência artificial e Processamento de linguagem natural |                           |
-| 3   | 21/03   | Fundamentos das redes neurais.                                            | Textos 1                  |
-| 4   | 28/03   | Keras para R                                                              |                           |
-| 5   | 4/04    | Processamento básico de textos                                            |                           |
-| 6   | 11/04   | Processamento básico de textos                                            | Textos 2 / Exercício 1    |
-| 7   | 18/04   | Modelos representações vetoriais                                          |                           |
-| 8   | 25/04   | Modelos representações vetoriais                                          |                           |
-| 9   | 2/05    | Modelos representações vetoriais                                          | Textos 3/ Exercício  2    |
-| 10  | 9/05    | Deep learning para textos: RNN e LSTM, 1D CNN                             |                           |
-| 11  | 16/05   | Deep learning para textos: RNN e LSTM, 1D CNN                             | Exercício 3.              |
-| 12  | 23/05   | Representações contextuais: Transformes e BERT                            | Textos 4                  |
-| 13  | 30/05   | Representações contextuais: Transformes e BERT                            |                           |
-| 14  | 6/06    | Representações contextuais: Transformes e BERT                            |                           |
-| 15  | 13/06   | Representações contextuais: Transformes e BERT                            | Exercício 4               |
+|     | **Dia** | **Conteúdo**                                                              | **Leituras / Exercícios**                                                                             |
+|-----------|-----------|--------------------|------------------------------|
+| 1   | 7/03    | Aula inaugural do programa de Pós                                         |                                                                                                       |
+| 2   | 14/03   | Introdução a inteligência artificial e Processamento de linguagem natural |                                                                                                       |
+| 3   | 21/03   | Discussão dos textos, Processamento básico de textos                      | Textos 1: Education DataScience- Past, Present, Future, Employing digital footprints in psychometrics |
+| 4   | 28/03   | Fundamentos das redes neurais. Keras para R                               |                                                                                                       |
+| 5   | 4/04    | Processamento básico de textos                                            |                                                                                                       |
+| 6   | 11/04   | Processamento básico de textos                                            | Textos 2 / Exercício 1                                                                                |
+| 7   | 18/04   | Modelos representações vetoriais                                          |                                                                                                       |
+| 8   | 25/04   | Modelos representações vetoriais                                          |                                                                                                       |
+| 9   | 2/05    | Modelos representações vetoriais                                          | Textos 3/ Exercício  2                                                                                |
+| 10  | 9/05    | Deep learning para textos: RNN e LSTM, 1D CNN                             |                                                                                                       |
+| 11  | 16/05   | Deep learning para textos: RNN e LSTM, 1D CNN                             | Exercício 3.                                                                                          |
+| 12  | 23/05   | Representações contextuais: Transformes e BERT                            | Textos 4                                                                                              |
+| 13  | 30/05   | Representações contextuais: Transformes e BERT                            |                                                                                                       |
+| 14  | 6/06    | Representações contextuais: Transformes e BERT                            |                                                                                                       |
+| 15  | 13/06   | Representações contextuais: Transformes e BERT                            | Exercício 4                                                                                           |
 
 ### Leituras e exercícios (Baixe os textos [aqui](http://www.labape.com.br/rprimi/ds/textos_nlp.zip))
 

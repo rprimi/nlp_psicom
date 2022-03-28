@@ -1,0 +1,1057 @@
+---
+title: "Text Mining with tidytext"
+author: "Ricardo Primi"
+date: "08/10/2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+    knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+    
+  #  Sys.setlocale( , "en_US.ISO8859-1")
+
+    library(readxl)
+    library(tidyverse)
+    library(tidytext)
+
+    library(scales)
+    library(psych)
+
+    library(RColorBrewer)  
+    library(xlsx)
+
+```
+
+```{r}
+usos_dl <- readRDS("~/Dropbox (Personal)/Ciencia de dados/ds_psicom/dados/usos_dl.RDS")
+
+write.xlsx(usos_dl, file = "../data/usos.xlsx")
+
+
+
+
+```
+
+
+### 1. Ler os dados
+
+```{r}
+library(readxl)
+
+usos <- read_excel("../data/usos.xlsx")
+
+```
+
+### 2. Explorar objetos e base
+Quantas av corrigiram cada resposta? 
+Quantos examinandos temos ?
+Qual a distribuiçào do escores?
+Ler as respostas são mais criativas ? 
+Quantas respostas em média 
+Fluencia se correlaciona com qualidade ?
+Como separar as respostas em palavras tokenizar 
+
+- dataframe, 
+- nomes das colunas, 
+- como acessar colunas e linhas
+- vetores 
+- como fazer graficos no base r
+- usando o dplyr
+
+
+ * Atividade 1: caixa de papelão
+ * Atividade 2: tijolos
+
+- https://livro.curso-r.com/index.html
+
+```{r}
+library(sjmisc)
+library(psych)
+library(skimr)
+
+
+
+names(usos)
+# Quantas av corrigiram cada resposta? 
+frq(usos$num_correções)
+
+
+# Quantos examinandos temos ?
+v <- unique(usos$id) 
+
+length(v)
+str(v)
+
+
+ 
+# Qual a distribuiçào do escores?
+describe(usos$av)
+skim(usos$av)
+sjmisc::descr(usos[, 9])
+
+hist(usos$av)
+
+ggplot(data = usos, mapping = aes(x=av) ) + geom_histogram(color = "white")
+# Ler as respostas são mais criativas ? 
+usos %>% filter(av > 3) %>% arrange(desc(av))
+
+# Quantas respostas em média ?
+
+usos %>% group
+usos_flu <- 
+
+usos %>% 
+      filter(!is.na(resposta)) %>%
+      filter(!is.na(ativi)) %>%
+      select(id, pre_pos, ativi) %>% 
+      group_by(id, pre_pos, ativi) %>% 
+      count %>% 
+     pull(n) %>% hist
+
+
+      unite(ativ_prepos, ativi, pre_pos) %>%
+      mutate(ativ_prepos = paste("at", ativ_prepos, sep="")) %>%
+      spread(key = ativ_prepos, value = freq)
+ 
+flu <-    usos %>% 
+      filter(!is.na(resposta)) %>%
+      filter(!is.na(ativi)) %>%
+      select(id, pre_pos, ativi) %>% 
+      group_by(id, pre_pos, ativi) %>% 
+      count %>% 
+      unite(ativ_prepos, ativi, pre_pos) %>%
+      mutate(ativ_prepos = paste("at", ativ_prepos, sep="")) %>%
+      spread(key = ativ_prepos, value = n)
+
+
+usos <- usos %>% left_join(flu, by = "id")
+   
+
+pairs.panels(usos[, 9:11])
+
+
+
+
+   usos %>%
+      ggplot(aes(x=at1_1)) + 
+      geom_histogram(binwidth = 2, color = "white", fill = "gray") +
+      scale_x_continuous(breaks = seq(1:25), limits = c(1, 25))
+   
+    usos%>%
+      ggplot(aes(x=at1_2)) + 
+      geom_histogram(binwidth = 2, color = "white", fill = "gray") +
+      scale_x_continuous(breaks = seq(1:25), limits = c(1, 25))
+
+
+  usos %>% ggplot(aes(x = at1_1, y =at1_2, color = at1_2)) +
+     geom_point(alpha=1/4) +
+     theme_minimal() +
+     scale_fill_gradientn(colours = brewer.pal(5 ,"Paired")) +
+     geom_smooth()
+
+  
+  
+  
+```
+
+ 
+#### Tokenize
+```{r eval=FALSE}
+
+ 
+ stopwords <- read_csv(
+    file = "http://www.labape.com.br/rprimi/ds/stopwords.txt", 
+    col_names = FALSE)
+  
+ names(stopwords) = "words"
+  
+  stopwords[221, "words"] <- "pra"
+  stopwords[222, "words"] <- "dá"
+  
+# Tokenize palvras 
+  usos2 <- usos %>% unnest_tokens(words, resposta) %>% 
+    filter(!is.na(words)) %>% 
+    filter(words !="a") %>%
+    filter(words !="0")  %>%
+    anti_join(stopwords) 
+ 
+
+
+
+```
+### Exploring word frequency
+
+```{r}
+
+
+# Palavras gerais   
+    usos2 %>% 
+        dplyr::count(words, sort = TRUE) %>%
+        filter(n > 20 ) %>%
+        mutate(words = reorder(words, n)) %>%
+       ggplot(aes(words, n)) +
+        geom_col() +
+        xlab(NULL) +
+        coord_flip()
+    
+# Word cloud   
+   library(wordcloud)
+
+     usos2 %>%
+        dplyr::count(words) %>%
+        with(wordcloud(words, n, 
+          colors = brewer.pal(12, "Set1"),
+            max.words = 100)) 
+
+ 
+
+```
+
+
+#### Dados
+
+```{r}
+  setwd("~/Dropbox (Personal)/Ciencia de dados")
+
+  usos <- read_excel("usos.xlsx", sheet = "Usos") 
+  
+  
+
+  # Atividade 1: caixa de papelão
+  # Atividade 2: tijolos
+
+```
+
+#### Descreve dados
+
+```{r}
+# Seleciona atividade 1    
+   dt_cx <- usos %>% filter(ativi==1 & !is.na(resposta)) %>% select(1:5)
+
+# Calcula fluência e examina distribuiçào
+    dt_cx %>% group_by(ID, pre_pos) %>% count %>% 
+      arrange(ID, pre_pos) %>% filter(n <25) %>%
+      ggplot(aes(x=n)) + 
+      geom_histogram(binwidth = 2, color = "white", fill = "gray") +
+      scale_x_continuous(breaks = seq(1:25), limits = c(1, 25))
+    
+# Correlação entre fluência    
+    dt_cx %>% group_by(ID, pre_pos) %>% count %>% 
+        arrange(ID, pre_pos) %>% filter(n <25) %>%
+        spread(key = pre_pos, value = n) %>%
+        ggplot(aes(x=`1`, y=`2`)) + geom_point()
+       
+
+```
+
+  
+  
+#### Tokenize
+```{r}
+# Tokenize palvras 
+  dt_cx2 <- dt_cx %>% unnest_tokens(words, resposta)
+
+length(unique(dt_cx2$words))
+
+# Lê stopwords
+
+  stopwords <- read_csv(
+    file = "http://www.labape.com.br/rprimi/ds/stopwords.txt", 
+    col_names = FALSE)
+  
+  names(stopwords) = "words"
+
+```
+
+
+#### Frequência de palavras
+
+```{r}
+    dt_cx2 %>% count(words, sort = TRUE)
+
+# Palavras gerais   
+    dt_cx2 %>%
+        count(words, sort = TRUE) %>%
+        filter(n > 50 ) %>%
+        mutate(words = reorder(words, n)) %>%
+       ggplot(aes(words, n)) +
+        geom_col() +
+        xlab(NULL) +
+        coord_flip()
+ 
+       
+# Remove stopwords
+     dt_cx2 %>%
+        count(words, sort = TRUE) %>%
+        anti_join(stopwords) %>%
+        filter(n > 15)  %>%
+        mutate(word = reorder(words, n)) %>%
+        ggplot(aes(word, n)) +
+        geom_col() +
+        xlab(NULL) +
+        coord_flip()
+
+# Word cloud   
+   library(wordcloud)
+
+    dt_cx2 %>%
+        anti_join(stopwords) %>%
+        count(words) %>%
+        with(wordcloud(words, n, 
+          colors = brewer.pal(12, "Set1"),
+            max.words = 100)) 
+
+    stopwords[221, "words"] <- "pra"
+    stopwords[222, "words"] <- "dá"
+    
+    
+```  
+
+
+#### Teste da hipótese "serial order effect" 
+Veja: Beaty, R. E., & Silvia, P. J. (2012). Why do ideas get more creative across time? An executive interpretation of the serial order effect in divergent thinking tasks. Psychology of Aesthetics, Creativity, and the Arts, 6(4), 309-319.
+http://dx.doi.org/10.1037/a0029171
+
+```{r}
+  
+  word_freq <- dt_cx2 %>%
+        count(words, sort = TRUE)
+
+  dt_cx2 <- dt_cx2 %>% left_join(word_freq)
+  
+  names(dt_cx2 )[6] <- "frq"
+  
+  dt_cx2 %>% 
+    ggplot(aes(x=resp_num)) + 
+    geom_histogram(
+      aes(y = (..count..)/sum(..count..), group = 1),
+      binwidth = 2, 
+      color = "white", 
+      fill = "gray"
+      )
+
+ 
+   dt_cx2 <- dt_cx2 %>% 
+    mutate(
+     resp_num2 =
+      case_when(
+      resp_num <=5 ~ 1,
+      resp_num > 5 & resp_num <= 10  ~ 2,
+      resp_num > 10  ~ 3
+       )
+      )
+   
+   table(dt_cx2$resp_num, dt_cx2$resp_num2)
+   
+ 
+    dt_cx2 %>% 
+      anti_join(stopwords) %>%
+      ggplot(aes(x=frq, fill = as.factor(resp_num2))) +
+      geom_histogram(
+      aes(y = (..count..)/sum(..count..), group = 1)) +
+      facet_grid(resp_num2~.) +
+      scale_fill_brewer(palette = "Set2") 
+    
+     dt_cx2 %>% 
+      anti_join(stopwords) %>%
+      ggplot(aes(y=frq, x=resp_num2, fill = as.factor(resp_num2))) +
+      geom_boxplot(alpha=1/2)  +
+      scale_fill_brewer(palette = "Set1") 
+      
+```
+
+
+* Exercício: faça um gráfico de frequencia (x) das palavras (y) em cada momento (1, 2 e 3)
+
+#### Quão correlacionados os desempenhos no pré e pos teste ?  
+
+```{r}
+
+    fr_pre_pos <-  dt_cx2 %>%
+        count(pre_pos, words, sort = TRUE) %>%
+        anti_join(stopwords) %>%
+        group_by(pre_pos) %>%
+        mutate(soma = sum(n),
+          prop = n / sum(n)
+          
+          ) %>% 
+        select(-n, -soma) %>% 
+        spread(pre_pos, prop) %>%
+        mutate(
+            `1` = ifelse(is.na(`1`), 0 ,`1`),
+            `2` = ifelse(is.na(`2`), 0 ,`2`))
+    
+     
+      
+       ggplot(fr_pre_pos, aes(x = `1`, y = `2`)) +
+        geom_abline(color = "gray40", lty = 2) +
+        geom_jitter(alpha = 0.1, size = 2.5) +
+        geom_text(aes(label = words), check_overlap = FALSE, just = 1.5) +
+       
+        scale_color_gradient(limits = c(0, 0.001), low = "darkslategray4", high = "gray75") +
+        theme(legend.position="none")
+  
+      
+        corr.test(fr_pre_pos[ , 2:3])
+      
+      
+        ggplot(fr_pre_pos, aes(x = `1`, y = `2`)) +
+            geom_point(alpha=1/20) +
+            geom_text(mapping = aes(label = words), check_overlap = TRUE, vjust = 1.5) 
+        
+  
+
+```
+
+
+
+#### Term’s inverse document frequency (idf)
+
+_Term’s inverse document frequency (idf), which decreases the weight for commonly used words and increases the weight for words that are not used very much in a collection of documents. This can be combined with term frequency to calculate a term’s tf-idf (the two quantities multiplied together), the frequency of a term adjusted for how rarely it is used_ (p. 31)
+
+_The idea of tf-idf is to find the important words for the content of each document by decreasing the weight for commonly used words and increasing the weight for words that are not used very much in a collection or corpus of documents_ (p. 37)
+
+$$idf_{termo} = \mbox{ln} \frac{n_{documentos}}{n_{documentos.contendo.termo}}$$
+
+
+
+```{r}
+
+
+# Calcula frequencia de palavras por sujeito (document)
+ subj_words <- dt_cx2 %>%
+  count(ID, words, sort = TRUE) %>%
+  ungroup()
+
+# Calcula total de palavras por sujeito
+  total_words <- subj_words %>% 
+    group_by(ID) %>% 
+    summarize(total = sum(n))
+
+
+# Une total de palavras em subj_words
+  subj_words <- left_join(subj_words, total_words)
+
+# Calcula frequência de palavras por sujeito  
+  subj_words <- subj_words %>% 
+    mutate(term_freq = n/total)
+
+ # Calcula número de documentos  
+  subj_words <- subj_words %>%
+    mutate(n_docs = n_distinct(ID))
+  
+ # Calcula em quandos documentos cada palavra aparece (document frequency)
+  
+   subj_words <- subj_words %>%
+    group_by(words) %>%
+    mutate(word_doc_freq = n_distinct(ID)/n_docs,
+      inv_word_doc_freq = n_docs/n_distinct(ID),
+      ln_inv_word_doc_freq =log(n_docs/n_distinct(ID)))
+   
+   subj_words <-  subj_words %>% filter(words !="0") 
+ 
+```
+
+  
+#### Explora tf e idf
+```{r}
+
+  subj_words %>%
+    group_by(words) %>%
+    summarise(word_doc_freq = mean(word_doc_freq)) %>%
+    arrange(desc(word_doc_freq)) %>%
+    mutate(words = reorder(words, word_doc_freq)) %>%
+    filter(word_doc_freq > .08) %>%
+    
+    ggplot(aes(words, word_doc_freq)) +
+      geom_col(aes(fill = word_doc_freq)) +
+      xlab(NULL) + coord_flip() +
+      scale_fill_gradientn(
+        colours = brewer.pal(5 ,"Paired")
+        )
+
+  subj_words %>%
+    group_by(words) %>%
+    summarise(word_doc_freq = mean(word_doc_freq)) %>%
+    anti_join(stopwords) %>%
+    arrange(desc(word_doc_freq)) %>%
+    mutate(words = reorder(words, word_doc_freq)) %>%
+    filter(word_doc_freq > .08) %>%
+    
+    ggplot(aes(words, word_doc_freq)) +
+      geom_col(aes(fill = word_doc_freq)) +
+      xlab(NULL) +
+      coord_flip() +
+      scale_fill_gradientn(
+        colours = brewer.pal(5 ,"Paired")
+        )
+ 
+   subj_words %>%
+     ggplot(aes(
+       x = word_doc_freq,
+       y = term_freq , 
+       color = inv_word_doc_freq
+       )) +
+     geom_point(alpha=1/4) +
+     theme_minimal() +
+      geom_text( aes(label = words), 
+        check_overlap = TRUE, 
+        vjust = 1.5,
+        size=3
+        ) +
+      scale_fill_gradientn(
+        colours = brewer.pal(5 ,"Paired")
+        )
+
+    subj_words %>%
+      select(2:9) %>%
+      anti_join(stopwords) %>%  
+      group_by(words) %>%
+     summarise_all(.funs = mean) %>% 
+      ggplot(aes(
+       x = word_doc_freq,
+       y = term_freq , 
+       color = inv_word_doc_freq
+       )) +
+     geom_point(alpha=1/4) +
+     theme_minimal() +
+      geom_text( aes(label = words), 
+        check_overlap = TRUE, 
+        vjust = 1.5,
+        size=3
+        ) +
+      scale_fill_gradientn(
+        colours = brewer.pal(5 ,"Paired")
+        )
+
+
+```
+  
+  
+##### Componentes Term Frequency Inverse Document Frequency (TF_IDF)
+
+```{r}
+
+  subj_words %>%
+     ggplot(aes(
+       x = word_doc_freq   ,
+       y = inv_word_doc_freq , 
+       color = inv_word_doc_freq
+       )) +
+     geom_point(alpha=1/4) +
+     theme_minimal() +
+      scale_fill_gradientn(
+        colours = brewer.pal(5 ,"Paired")
+        )
+
+subj_words %>%
+     ggplot(aes(
+       x =  word_doc_freq    ,
+       y = ln_inv_word_doc_freq , 
+       color = inv_word_doc_freq
+       )) +
+     geom_point(alpha=1/4) +
+     theme_minimal() +
+      scale_fill_gradientn(
+        colours = brewer.pal(5 ,"Paired")
+        )
+
+```
+  
+
+#### Adicionando tf_tdf automaticamente
+```{r}
+
+
+
+  subj_words <- subj_words %>%
+    bind_tf_idf(term = words, document = ID, n=n)
+
+dtm <-  subj_words %>% select(c(1, 2, 12)) %>%
+  spread(key=words, value = tf_idf)
+
+```
+  
+  
+```{r}
+
+subj_words %>%
+     ggplot(aes(
+       x =  tf   ,
+       y = tf_idf , 
+       color = word_doc_freq  
+       )) +
+     geom_point(alpha=1/4) +
+     theme_minimal() +
+      scale_fill_gradientn(
+        colours = brewer.pal(5 ,"Paired")
+        ) +
+    geom_text( aes(label = words), 
+        check_overlap = TRUE, 
+        vjust = 1.5,
+        size=3
+        ) 
+
+
+ source("http://www.labape.com.br/rprimi/R/cria_quartis.R")
+
+table(cut(subj_words$word_doc_freq, breaks = c(0, 0.003875969, 0.011627907, 0.399224806)))
+
+
+subj_words %>%
+    select(2:12) %>%
+     anti_join(stopwords) %>%  
+     group_by(words) %>%
+     summarise_all(.funs = mean) %>%
+     ungroup() %>%
+     mutate(grp_wf = cut(word_doc_freq, breaks = c(0, 0.003, 0.011, 0.20))) %>%
+    ggplot(aes(
+       x =  tf   ,
+       y = tf_idf , 
+       color = word_doc_freq  
+       )) +
+     geom_point(alpha=1/4) +
+     theme_minimal() +
+      scale_fill_gradientn(
+        colours = brewer.pal(5 ,"Paired")
+        ) +
+    geom_text( aes(label = words), 
+        check_overlap = TRUE, 
+        vjust = 1.5,
+        size=3
+        ) +
+  facet_grid(.~grp_wf)
+
+
+```
+  
+
+
+```{r}
+
+ subj_words %>%
+    arrange(desc(tf_idf))
+ 
+  subj_words %>%
+    ggplot(aes(x=tf , y= tf_idf, color = word_doc_freq)) + 
+    geom_point(alpha=1/4) +
+    scale_colour_gradientn(colours = brewer.pal(7, "Paired")) +
+    scale_y_continuous(seq(0, 2.5, .5), limits=c(0, 2.5))
+  
+ 
+  temp <- subj_words %>%
+    arrange(ID, desc(tf_idf)) %>% 
+     group_by(ID) %>% 
+     top_n(10) %>% 
+    mutate(word = forcats::fct_reorder(as.factor(words), tf_idf)) 
+   
+ 
+    
+  temp[1:60, ] %>% 
+  ggplot(aes(word, tf_idf, fill = ID)) +
+    geom_col(show.legend = FALSE) +
+    labs(x = NULL, y = "tf-idf") +
+    facet_wrap(~ID, ncol = 2, scales = "free") +
+    coord_flip()
+
+
+```
+
+###### Latent Semantic Analyais via Topic modeling (Latent Dirichlet Allocation - LDA )
+* Usaremos o pacote text2vec
+* Site: http://text2vec.org/topic_modeling.html
+* Usando palavras
+
+```{r}
+  # install.packages('servr') 
+  library(stringr)
+  library(text2vec)
+ 
+  
+  prep_fun <- tolower
+  tok_fun <- word_tokenizer
+
+  it = itoken(
+      dt_cx$resposta, 
+      ids = dt_cx$ID, 
+      preprocessor = prep_fun, 
+      tokenizer = tok_fun, 
+      progressbar = FALSE)
+  
+  vocab = 
+    create_vocabulary(it,
+      stopwords = stopwords$words) %>%
+    
+    prune_vocabulary(
+      term_count_min = 1, 
+      doc_proportion_max = 0.8
+      )
+
+  vectorizer = vocab_vectorizer(vocab)
+  dtm = create_dtm(it, vectorizer)
+  
+  dim(dtm)
+
+  # define tfidf model
+  tfidf = TfIdf$new()
+  # fit model to train data and transform train data with fitted model
+  dtm_tfidf = fit_transform(dtm, tfidf)
+
+ lda_model = LDA$new(
+   n_topics = 12, 
+   doc_topic_prior = 0.1,
+   topic_word_prior = 0.01
+   )
+
+  doc_topic_distr = 
+    lda_model$fit_transform(
+    x = dtm_tfidf, 
+    n_iter = 1000, 
+    convergence_tol = 0.001, 
+    n_check_convergence = 25, 
+    progressbar = FALSE
+    )
+ 
+  lda_model$get_top_words(n = 12, 
+    topic_number = c(1:12), lambda = 0.2)
+  
+    
+  lda_model$plot()
+    
+  
+```
+
+###### LDA usando bigramas 2 a 3
+
+
+```{r}
+
+  library(stringr)
+  library(text2vec)
+  
+  prep_fun = tolower
+  tok_fun = word_tokenizer
+
+  it = itoken(dt_cx$resposta, 
+             preprocessor = prep_fun, 
+             tokenizer = tok_fun, 
+             ids = dt_cx$ID, 
+             progressbar = FALSE)
+  
+  vocab = create_vocabulary(
+    it, 
+    stopwords = stopwords$words,
+    ngram = c(3, 3)
+    ) %>%
+    prune_vocabulary(
+      term_count_min = 1, 
+      doc_proportion_max = 0.8)
+  
+  dim(vocab)
+  
+  vectorizer = vocab_vectorizer(vocab)
+  dtm = create_dtm(it, vectorizer)
+  
+  dim(dtm)
+
+  # define tfidf model
+  tfidf = TfIdf$new()
+  # fit model to train data and transform train data with fitted model
+  dtm_tfidf = fit_transform(dtm, tfidf)
+
+  dim(dtm_tfidf )
+
+ lda_model = LDA$new(
+   n_topics =8, 
+   doc_topic_prior = 0.1,
+   topic_word_prior = 0.01
+   )
+
+  doc_topic_distr = 
+    lda_model$fit_transform(
+    x = dtm_tfidf, n_iter = 1000, 
+    convergence_tol = 0.001, 
+    n_check_convergence = 25, 
+    progressbar = FALSE
+    )
+   
+  barplot(
+    doc_topic_distr[2, ], xlab = "topic", 
+    ylab = "proportion", ylim = c(0, 1), 
+    names.arg = 1:ncol(doc_topic_distr)
+    )
+    
+  lda_model$get_top_words(n = 12, 
+    topic_number = c(1:4), lambda = 0.2)
+  
+    
+  lda_model$plot()
+ 
+```
+
+
+#### Classificação de idéias usando word embeddings
+* Word embeddings da base de vetores em português do NILC (http://www.nilc.icmc.usp.br/nilc/index.php/repositorio-de-word-embeddings-do-nilc#)
+```{r eval=FALSE}
+
+    library(readr)
+  
+ # Lê word embeddings
+  nilc_wv <- read_delim(
+    file = "glove_s300.txt", 
+    delim = " ",quote="", 
+    skip = 1,  
+    col_names = FALSE, 
+    progress = TRUE)
+  
+  View(nilc_wv[2000:2020, ])
+  
+  names(nilc_wv)[1]<-"words"
+  names(nilc_wv)[2:301]<-paste("V", 1:300, sep= "")
+  
+ 
+  
+  
+  # Lê word embeddings de 600d
+  # load("~/Documents/word_vectors/nilc_wv_glove_600d.RData")
+  
+  
+  # cria vocabulário
+  vocab <- dt_cx2 %>% count(words, sort = TRUE)
+  
+  # Adiciona vetores
+  vocab <- left_join(vocab, nilc_wv)
+  
+  # vetor lógico indicando palavras não encontradas nos vetores
+  select <- vocab %>% select(V1) %>% is.na %>% as.logical()
+  
+  table(select)
+  select <- !select
+  
+  # Análise de 100 clusters
+  d   <- dist(vocab[select , 3:302], method="euclidean") 
+  cluster  <- hclust(d, method="ward.D2")
+  plot(cluster)
+  grp200 <- cutree(cluster, k = 200)
+  
+  table(grp200)
+  
+  
+  
+  # adiciona clusters
+  vocab <- vocab %>% filter(select) %>% select(1:2) %>% bind_cols(grp200=grp200)
+  
+  # leva cluster para a base
+  dt_cx2 <- dt_cx2[, 1:5]
+  dt_cx2 <- dt_cx2 %>% left_join(vocab)
+  
+  # transforma cluster em dummies
+  dt_cx2 <- bind_cols(dt_cx2, as.data.frame(dummy.code(dt_cx2$grp200)))
+  
+
+  names(dt_cx2)
+  
+  # cria base por resposta
+  dt_cx3 <-  dt_cx2 %>% select(c(1, 2, 4, 8:207)) %>%
+    group_by(ID, resp_num, pre_pos) %>%
+    summarise_all(.funs = sum, na.rm=TRUE)
+  
+   names(dt_cx3)
+   # Análise de 40 clusters das respostas 
+  d   <- dist( dt_cx3[, 4:203], method="binary") 
+  
+  d
+  cluster  <- hclust(d, method="ward.D2")
+  plot(cluster)
+  grp60 <- cutree(cluster, k = 60)
+  
+  grp20 <- cutree(cluster, k =20)
+   
+  dt_cx3 <- bind_cols(dt_cx3, grp60 = grp60)
+  dt_cx3 <- bind_cols(dt_cx3, grp20 = grp20)
+  
+  names(dt_cx3) 
+  dt_cx <- left_join(dt_cx[, 1:5], dt_cx3[, c(1:3, 204, 205)])
+  
+ table(dt_cx$grp60)
+  
+```
+
+#### Visualizando clusters usando tsn-e 
+* https://lvdmaaten.github.io/tsne/
+* https://distill.pub/2016/misread-tsne/
+```{r eval=FALSE}
+
+
+  library(Rtsne)
+  library(ggrepel)
+  library(ggthemes)
+  library(RColorBrewer)
+  library(artyfarty)
+ 
+ # Lê word embeddings
+  nilc_wv <- read_delim(
+    file = "glove_s300.txt", 
+    delim = " ",quote="", 
+    skip = 1,  
+    col_names = FALSE, 
+    progress = TRUE)
+  
+  names(nilc_wv)[1]<-"words"
+  names(nilc_wv)[2:301]<-paste("V", 1:300, sep= "")
+
+  vocab <- vocab[ , 1:3]
+  vocab <- left_join(vocab, nilc_wv)
+  select <- vocab %>% select(V1) %>% is.na %>% as.logical()
+  select <- !select 
+  
+  
+  names(vocab)
+ 
+ tsne_out <- Rtsne(vocab[select , 4:303], perplexity = 18) 
+ 
+ vocab  <-  cbind(vocab[select, 1:3] , as.data.frame(tsne_out$Y))
+names(vocab)
+
+  ggplot(data = vocab,  
+            mapping = aes(
+             y = V1,
+             x = V2,
+            color = grp60) 
+           ) +
+          
+         geom_point()  +
+                  
+         geom_text_repel(
+            aes(label=words), 
+            size=2, vjust=-1.2
+            ) +
+       theme_minimal() +
+      scale_color_gradientn(colours =  brewer.pal(12, "Paired"))
+  
+  
+  # cluster via ts-ne
+  d   <- dist( vocab[, 4:5], method="euclidian") 
+  cluster  <- hclust(d, method="ward.D2")
+  plot(cluster)
+  grp60 <- cutree(cluster, k = 60)
+  
+   # adiciona clusters
+  vocab <- vocab %>% filter(select) %>% select(1:2) %>% bind_cols(as.data.frame(grp60))
+  
+  names(dt_cx2)
+  # leva cluster para a base
+  dt_cx2b <- dt_cx2[, c(1:7)] %>% left_join(vocab)
+  
+  # transforma cluster em dummies
+  dt_cx2b <- bind_cols(dt_cx2b, as.data.frame(dummy.code(dt_cx2b$grp60)))
+  
+  names(dt_cx2b)
+  
+  # cria base por resposta
+  dt_cx3b <-  dt_cx2b %>% select(c(1, 2, 4, 10:49)) %>%
+    group_by(ID, resp_num, pre_pos) %>%
+    summarise_all(.funs = sum, na.rm=TRUE)
+  
+   names(dt_cx3b)
+   # Análise de 40 clusters das respostas 
+  d   <- dist( dt_cx3[, 4:69], method="binary") 
+  cluster  <- hclust(d, method="ward.D2")
+  plot(cluster)
+  grp60b <- cutree(cluster, k = 60)
+  
+  names(dt_cx3b) 
+  dt_cx3b <- bind_cols(dt_cx3b, as.data.frame(grp40b))
+   
+  dt_cx <- left_join(dt_cx[, 1:6], dt_cx3b[, c(1:3, 44)])
+  
+  
+  table(dt_cx$grp40, dt_cx$grp40b)
+  
+  table(dt_cx$grp40)
+  
+  
+  
+         
+```
+
+
+
+
+
+
+###### Miscelaneous
+
+
+```{r eval=FALSE}
+
+  prep_fun = tolower
+  tok_fun = word_tokenizer
+
+  it = itoken(dt_cx$resposta, 
+             preprocessor = prep_fun, 
+             tokenizer = tok_fun, 
+             ids = dt_cx$ID, 
+             progressbar = FALSE)
+  
+  vocab = create_vocabulary(
+    it, 
+    stopwords = stopwords$words,
+    ) %>%
+    prune_vocabulary(doc_proportion_max = 0.60, term_count_min = 2)
+
+  vectorizer = vocab_vectorizer(vocab)
+  dtm = create_dtm(it, vectorizer)
+  
+  dim(dtm)
+
+  # define tfidf model
+  tfidf = TfIdf$new()
+  # fit model to train data and transform train data with fitted model
+  dtm_tfidf = fit_transform(dtm, tfidf)
+
+  lsa = LSA$new(n_topics = 20)
+  
+  doc_embeddings = dtm %>% 
+    fit_transform(tfidf) %>% 
+    fit_transform(lsa)
+
+  dim(doc_embeddings)
+  dim(lsa$components)
+  
+ # Análise de cluster
+ library(NbClust)
+ library(factoextra)
+  
+  
+  s <- !duplicated(doc_embeddings)
+  
+  as.data.frame(doc_embeddings) %>% 
+    filter(s) %>%
+    fviz_nbclust(x = ., 
+     FUNcluster = hcut, 
+     method = c("wss"), k.max = 60)
+ 
+    table(dt_cx$grp32)
+    
+    s <- !duplicated(doc_embeddings) & dt_cx$grp32==5
+    
+    as.data.frame(doc_embeddings) %>% 
+    filter(s) %>%
+    fviz_nbclust(x = ., 
+     FUNcluster = hcut, 
+     method = c("wss"), k.max = 40)
+    
+  
+    s <- dt_cx$grp32==5
+    d   <-  as.data.frame(doc_embeddings) %>% filter(s) %>% dist(method="euclidean") 
+    cluster  <- hclust(d, method="ward.D2")
+    plot(cluster)
+    
+    grp10 <- cutree(cluster, k = 10)
+    
+     dt_cx_cat5 <-  dt_cx %>% filter(grp32==5) %>% cbind(., grp10)
+      
+      table(dt_cx_cat5$grp10)
+
+```

@@ -1,0 +1,82 @@
+---
+title: "Digital footprint analysis"
+author: "Ricardo Primi"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+### Data
+```{r}
+library(readxl)
+resp_digfoot <- read_excel("../data/resp_footprintxlsx.xlsx")
+
+
+r = cor(resp_digfoot[ , 2:7])
+print(r, digits = 2 )
+
+
+library(corrr)
+r2 <- correlate(resp_digfoot[ , 2:7], quiet = TRUE)
+shave(r2, upper = F)
+fashion(r2)
+rplot(r2)
+network_plot(r2)
+
+```
+
+### PC
+
+```{r}
+
+
+library(psych)
+results <- principal(resp_digfoot[ , 2:7], nfactors = 3, scores = T)
+
+   
+```
+
+- pag 147-
+
+```{r}
+
+ C <-  e$vectors %*% diag(sqrt(e$values))  #components
+ C %*% t(C)   #reproduce the correlation matrix
+
+ eigens <- eigen(r)
+ loadings <- eigens$vectors %*% sqrt(diag(eigens$values, nrow = length(eigens$values)))
+ 
+ r2 <- loadings %*% t(loadings)
+ 
+ print(r, digits = 2)
+ print(r2, digits = 2)
+ 
+ r4<- results$loadings %*% t(results$loadings)
+ 
+  print(r, digits = 2)
+  print(r4, digits = 2)
+  
+  r - r4
+
+
+```
+
+## SVD
+
+```{r}
+
+library(irlba)
+
+res_svd <-  irlba(as.matrix(resp_digfoot[ , 2:7]), nv = 3) 
+res_svd <-  svd(as.matrix(resp_digfoot[ , 2:7]), nv = 3) 
+u <- res_svd$u
+v <- res_svd$v
+s = diag(res_svd$d)
+
+plot(res_svd$d)
+
+resp_digfoot2 <- u %*% s[1:3, 1:3] %*% t(v)
+
+resp_digfoot[ , 2:7] - resp_digfoot2
+
+```
+

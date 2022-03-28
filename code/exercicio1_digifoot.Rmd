@@ -1,0 +1,114 @@
+---
+title: "Exercicio1_digifoot"
+author: "Ricardo Primi"
+date: "3/28/2022"
+output: html_document
+---
+
+### Dados
+
+```{r}
+library(readxl)
+
+df <- read_excel("../data/resp_footprintxlsx.xlsx")
+
+```
+0. Data frames e vetores e seleção de linhas e colunas
+```{r}
+df
+df$google
+names(df)
+df[1, ]
+df[1:2, ]
+df[ , 1:2]
+df[ , 2]
+df$google
+2:7
+
+```
+
+
+### Principal Components
+1. Calcula correlações usando vários pacotes
+```{r}
+
+r <-  cor( df[, 2:7])
+print(r, digits = 2 )
+
+
+heatmap(r)
+
+library(corrr)
+r2 <- corrr::correlate( df[, 2:7])
+fashion(r2)
+rplot(r2)
+network_plot(r2)
+
+
+```
+
+2. Análise via componentes princiapis
+
+```{r}
+library(psych)
+
+pc <- principal(df[ , 2:7], nfactors = 3, scores = TRUE)
+print.psych(pc)
+
+plot(pc$values)
+pc$loadings
+pc$scores
+
+```
+
+3. Cálculos subjacentes a PC
+- ver: http://www.personality-project.org/r/book/Chapter6.pdf
+
+```{r}
+
+ eigens <- eigen(r)
+  
+ eigens$vectors
+ eigens$values
+   
+ loadings <- eigens$vectors %*% sqrt(diag(eigens$values))
+ r2 <- loadings %*% t(loadings)
+ r3 <- pc$loadings %*% t(pc$loadings)
+ 
+ 
+ r 
+ r2
+
+ r - r3
+ 
+ r
+ r3
+ 
+ loadings 
+ t(loadings)
+```
+
+### Sular Value Decomposition (SVD)
+
+Veja: https://www.dropbox.com/s/o4blrblejilqlxj/Mining%20Big%20Data%20to%20Extract%20Patterns%20and%20Predict%20Real-Life%20Outcomes.pdf?dl=0
+
+
+```{r}
+
+library(irlba)
+r_svd <-  svd(as.matrix(df[ , 2:7]), nv = 3) 
+
+u <- r_svd$u
+v <- r_svd$v
+s = diag(r_svd$d)
+
+plot(res_svd$d)
+
+df2 <- u[, 1:3] %*% s[1:3, 1:3] %*% t(v)
+
+df
+df2
+
+
+```
+

@@ -5,68 +5,152 @@ date: "`r Sys.Date()`"
 output: html_document
 ---
 
-### Data
+### Le dados e explora base
+
+1. Lê os dados
+- Visitas (cliques) de 7 sujeitos em 6 sites
 ```{r}
 library(readxl)
+
 resp_digfoot <- read_excel("../data/resp_footprintxlsx.xlsx")
+names(resp_digfoot)
+str(resp_digfoot )
 
 
+```
+
+2. Calcula correlação entre as colunas(visitas aos websites)
+```{r}
 r = cor(resp_digfoot[ , 2:7])
 print(r, digits = 2 )
+```
 
-
+3. Mostra correlações mais "bonitinhas" com o pacote corrr
+```{r}
 library(corrr)
 r2 <- correlate(resp_digfoot[ , 2:7], quiet = TRUE)
 shave(r2, upper = F)
 fashion(r2)
 rplot(r2)
 network_plot(r2)
+```
+4. Agora usando o pacote heatmap
+```{r}
+devtools::install_github("talgalili/d3heatmap")
+library(d3heatmap)
+d3heatmap(r)
 
 ```
 
-### PC
+### Um pouco de algebra com matrizes
+
+1. Matrizes 
+- um vetor
+```{r}
+A = c(1, 2, 3, 4, 5, 6)
+A
+```
+- agora organizando o vetor em uma matriz
+```{r}
+  A = matrix(data = c(1, 2, 3, 4, 5, 6), nrow = 3, ncol = 2)
+  A
+```
+
+- note que ele distribuiu os números do vetor por coluna. Se quiséssemos por linha:
+```{r}
+ A = matrix(data = c(1, 2, 3, 4, 5, 6), nrow = 3, ncol = 2, byrow = TRUE)
+ A
+```
+- matriz B
 
 ```{r}
+B = matrix(data = c(1, 1, 1, 2, 2, 2), nrow = 2, ncol = 3,  byrow = TRUE)
+B
+```
 
+- Multiplicação de matrizes 
+```{r}
+C = A %*% B
+C
+```
 
+- Matriz transposta
+```{r}
+A
+t(A)
+```
+
+- Matriz diagnonal
+```{r}
+diag(C)
+```
+
+### Análise de componentes principais
+
+1. Calcula componentes principais da matriz `resp_digfoot` usando o pacote psych  
+```{r}
 library(psych)
 results <- principal(resp_digfoot[ , 2:7], nfactors = 3, scores = T)
 
-   
 ```
 
-- pag 147-
+2. Um pouco de álgebra da PC: decomposição da matriz em eigenvaules and eigenvectors (autovalores e autovetores)
+* Ver livro de Psicometria de Wiliam Revele https://personality-project.org/r/book/ Cap. 6
+
+- Decompõe a matriz em autovalores e autovetores
+
+_The eigenvectors are also known as the characteristic roots of the  matrix, and the eigenvalues are simply scalings of the roots._
 
 ```{r}
+ 
+ e <- eigen(r)
+ str(e)
+ 
+ e$values
+ e$vectors
+ 
+```
+- calcula os componentes (a matriz de cargas das variáveis)
+_Principal components are simply the eigenvectors scaled by the square root of the eigenvalues_
 
- C <-  e$vectors %*% diag(sqrt(e$values))  #components
- C %*% t(C)   #reproduce the correlation matrix
+```{r}
+ 
+ sqrt(e$values)
+ raiz_eigva <- diag(sqrt(e$values))
+ c <-  e$vectors %*% raiz_eigva 
 
- eigens <- eigen(r)
- loadings <- eigens$vectors %*% sqrt(diag(eigens$values, nrow = length(eigens$values)))
- 
- r2 <- loadings %*% t(loadings)
- 
- print(r, digits = 2)
- print(r2, digits = 2)
- 
- r4<- results$loadings %*% t(results$loadings)
- 
-  print(r, digits = 2)
-  print(r4, digits = 2)
-  
-  r - r4
+ heatmap(c, Rowv = NA, Colv = NA)
 
+ round(c, 2)
+
+```
+- reproduz a matriz a partir da multiplicação dos componentes 
+
+```{r}
+r2 <-   c %*% t(c)
+round(r2 - r, 2)
 
 ```
 
-## SVD
+- o objetico final é tentar reproduzir a matriz udando um numero menor de componentes
+_Is it possible to represent this matrix in a more parsimonious way? That is, can we determine the vector f that generated the correlation matrix. (This is sometimes seen as the problem of unscrambling eggs.)_
+
+-  matriz = interação (omelete), componentes e escores fatoriais = efeitos principais (ingredientes)
+
+```{r}
+c2 <-  e$vectors[ , 1:3] %*% raiz_eigva[1:3, 1:3]
+r3 <-   c2 %*% t(c2)
+round(r3 - r, 2) 
+
+```
+
+### Calculando Singular value decomposition
+
 
 ```{r}
 
 library(irlba)
 
-res_svd <-  irlba(as.matrix(resp_digfoot[ , 2:7]), nv = 3) 
 res_svd <-  svd(as.matrix(resp_digfoot[ , 2:7]), nv = 3) 
 u <- res_svd$u
 v <- res_svd$v
@@ -74,9 +158,11 @@ s = diag(res_svd$d)
 
 plot(res_svd$d)
 
-resp_digfoot2 <- u %*% s[1:3, 1:3] %*% t(v)
+resp_digfoot2 <- u[, 1:3] %*% s[1:3, 1:3] %*% t(v)
 
-resp_digfoot[ , 2:7] - resp_digfoot2
+round(resp_digfoot[ , 2:7] - resp_digfoot2, 2)
 
 ```
+
+### Desfio: compare PC com SVD?
 

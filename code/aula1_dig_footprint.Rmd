@@ -13,10 +13,11 @@ output: html_document
 library(readxl)
 
 resp_digfoot <- read_excel("../data/resp_footprintxlsx.xlsx")
+
 names(resp_digfoot)
 str(resp_digfoot )
 
-
+resp_digfoot$etsy
 ```
 
 2. Calcula correlação entre as colunas(visitas aos websites)
@@ -89,8 +90,10 @@ diag(C)
 
 1. Calcula componentes principais da matriz `resp_digfoot` usando o pacote psych  
 ```{r}
+
 library(psych)
 results <- principal(resp_digfoot[ , 2:7], nfactors = 3, scores = T)
+
 
 ```
 
@@ -117,6 +120,7 @@ _Principal components are simply the eigenvectors scaled by the square root of t
  
  sqrt(e$values)
  raiz_eigva <- diag(sqrt(e$values))
+ 
  c <-  e$vectors %*% raiz_eigva 
 
  heatmap(c, Rowv = NA, Colv = NA)
@@ -132,7 +136,7 @@ round(r2 - r, 2)
 
 ```
 
-- o objetico final é tentar reproduzir a matriz udando um numero menor de componentes
+- o objetico final é tentar reproduzir a matriz usando um numero menor de componentes
 _Is it possible to represent this matrix in a more parsimonious way? That is, can we determine the vector f that generated the correlation matrix. (This is sometimes seen as the problem of unscrambling eggs.)_
 
 -  matriz = interação (omelete), componentes e escores fatoriais = efeitos principais (ingredientes)
@@ -141,6 +145,8 @@ _Is it possible to represent this matrix in a more parsimonious way? That is, ca
 c2 <-  e$vectors[ , 1:3] %*% raiz_eigva[1:3, 1:3]
 r3 <-   c2 %*% t(c2)
 round(r3 - r, 2) 
+
+mean(r3 - r)
 
 ```
 

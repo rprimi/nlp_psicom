@@ -1,0 +1,145 @@
+---
+title: "Processamento básico de textos: mais passos do pré processamento dos textos"
+author: "Ricardo Primi"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+
+```{r setup, include=FALSE}
+    knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+
+```
+
+### 1. Ler os dados
+```{r}
+library(readxl)
+usos <- read_excel("../data/usos.xlsx")
+
+```
+
+### 2. Ativar bibliotecas
+```{r}
+library(sjmisc)
+library(tidyverse)
+library(tidytext)
+library(RColorBrewer)  
+library(quanteda)
+library(quanteda.textplots)
+
+```
+
+### 3. Stemaing, calculando TFIDF e criando uma matriz de dados DFM
+
+1. Tokenizar usando o tidytext
+
+```{r}
+
+tokenized_corpus  <- usos %>% 
+ arrange(id_unico) %>%
+ unnest_tokens(
+  output = word, 
+  input = resposta, 
+  to_lower = TRUE,
+  token = "words")
+
+ 
+
+```
+2. Remover stop words
+```{r}
+ stopwords <- read_csv(
+    file = "http://www.labape.com.br/rprimi/ds/stopwords.txt", 
+    col_names = FALSE)
+   names(stopwords) = "word"
+   
+ tokenized_corpus <- tokenized_corpus %>% 
+    anti_join(stopwords) 
+ 
+ 
+```
+
+3. Steming
+
+```{r}
+ library(SnowballC)
+
+tokenized_corpus <- tokenized_corpus %>% 
+ mutate(stem = wordStem(word, language =  "portuguese"))
+
+ tokenized_corpus  %>% 
+        dplyr::count(word, sort = TRUE) %>%
+        filter(n > 5 ) %>%
+        mutate(words = reorder(word, n)) %>%
+       ggplot(aes(words, n)) +
+        geom_col(alpha = 1/2, color = "blue") +
+        xlab(NULL) +
+        coord_flip()
+    
+ tokenized_corpus  %>% 
+        dplyr::count(stem, sort = TRUE) %>%
+        filter(n > 5 ) %>%
+        mutate(stem = reorder(stem, n)) %>%
+       ggplot(aes(stem, n)) +
+        geom_col(alpha = 1/2, color = "purple") +
+        xlab(NULL) +
+        coord_flip()
+ 
+
+
+```
+
+4. Criando a DTM com TFIDF
+
+Term’s inverse document frequency (idf), which decreases the weight for commonly used words and increases the weight for words that are not used very much in a collection of documents. This can be combined with term frequency to calculate a term’s tf-idf (the two quantities multiplied together), the frequency of a term adjusted for how rarely it is used_ (p. 31)
+
+_The idea of tf-idf is to find the important words for the content of each document by decreasing the weight for commonly used words and increasing the weight for words that are not used very much in a collection or corpus of documents_ (p. 37)
+
+$$idf(\text{termo}) = \mbox{ln} \frac{n_{documentos}}{n_{documentos.contendo.termo}}$$
+
+
+$idf(\text{term}) = \ln{\left(\frac{n_{\text{documents}}}{n_{\text{documents containing term}}}\right)}$
+
+
+```{r}
+
+tokenized_corpus2 <- 
+ tokenized_corpus %>% 
+ count(id_unico, stem) %>%
+  bind_tf_idf(stem, id_unico, n)
+
+
+ tokenized_corpus2  %>% 
+  group_by(stem) %>%
+  summarise(tf_idf = sum(tf_idf)) %>%
+    filter(tf_idf > 20 ) %>%
+    mutate(stem = reorder(stem, tf_idf)) %>%
+       ggplot(aes(stem, tf_idf)) +
+        geom_col(alpha = 1/2, color = "orange") +
+        xlab(NULL) +
+        coord_flip()
+
+
+ dfm_matrix <-  tokenized_corpus2 %>%
+    cast_dfm(id_unico, stem, tf_idf)
+
+ class(dfm_matrix )
+ 
+  featfreq(dfm_matrix )
+  topfeatures(dfm_matrix, 100) 
+  
+  table(tokenized_corpus$stem, tokenized_corpus$word) %>%
+   as.data.frame() %>% 
+   filter(Freq !=0) %>%
+   arrange(Var1, Var2) %>%
+    openxlsx::write.xlsx(file = "word_stem.xlsx")
+  
+  
+   textplot_wordcloud(
+    dfm_matrix, min_count = 10, 
+    random_order = FALSE, 
+    color = RColorBrewer::brewer.pal(8, "Set1")
+    )  
+  
+ 
+```

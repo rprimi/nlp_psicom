@@ -1,0 +1,151 @@
+---
+title: "Regressão linear com Keras"
+author: "Ricardo Primi"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+
+```{r setup, include=FALSE}
+    knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+
+```
+
+
+
+### 1. Ativar bibliotecas
+
+
+```{r}
+
+library(sjmisc)
+library(psych)
+library(skimr)
+library(tidyverse)
+
+library(readxl)
+library(tidytext)
+
+library(scales)
+library(psych)
+
+library(RColorBrewer)  
+library(xlsx)
+
+library(quanteda)
+library(tidytext)
+library(quanteda.textplots)
+# devtools::install_github("rstudio/keras") 
+
+# keras::install_keras(version =  "2.0.0")
+# tensorflow::install_tensorflow() 
+
+library(keras)
+
+
+library(tensorflow)
+tf$constant("Hellow Tensorflow")
+
+```
+
+### 2. Ler os dados
+```{r}
+usos <- read_excel("../data/usos.xlsx")
+
+```
+
+### 3. Transformando os textos em uma matriz de dados 
+
+- Tokenizar 
+- Matriz documentos X termos/features (Document Term/Feature Matrix) usando bag of words
+- 
+```{r}
+ 
+  tokenized_corpus  <- tokens(usos$resposta,remove_punct = TRUE)
+
+  stopwords <- read_csv(
+    file = "http://www.labape.com.br/rprimi/ds/stopwords.txt", 
+    col_names = FALSE)
+   names(stopwords) = "words"
+ 
+
+ tokenized_corpus <- tokens(usos$resposta, remove_punct = TRUE, remove_numbers = TRUE)
+ 
+
+  
+  dfm <- dfm(tokenized_corpus) %>%
+    dfm_sort(decreasing = TRUE, margin = c("features")
+    ) %>% 
+   dfm_trim(min_termfreq = 2, min_docfreq = 2 ) 
+
+ dfm
+  
+  
+```
+
+### 4. Dividir dados em treino e teste
+
+```{r}
+
+
+ set.seed(23)
+ N = dim(usos)[1]
+ indices <- sample(1:N)  
+
+ prop_train <- .80
+ N_train = round(prop_train*N)
+ N_test = N - N_train
+ train_indices <-  indices[1:N_train] 
+ test_indices <-   indices[(N_train+1):N] 
+ 
+ 
+ x_train <- as.matrix(dfm[train_indices, ])
+ y_train <- as.matrix(usos[train_indices, "av"])
+    
+ x_test <-  as.matrix(dfm[test_indices, ])
+ y_test <- -as.matrix(usos[test_indices, "av"]) 
+ 
+ dim(x_train)
+
+```
+
+### 5. Modelo com Keras
+```{r}
+ reticulate::py_discover_config()
+ 
+  m1 <- keras_model_sequential() %>%
+          layer_dense( units = 1,  activation = "linear",  input_shape=210)
+
+  m1 %>% compile(
+      optimizer = optimizer_rmsprop(),
+      loss = "mse",
+      metrics = list("mean_absolute_error")
+      )
+
+   history_linear <- m1 %>% 
+    keras::fit( 
+    x_train,
+    y_train,
+    epochs =30,
+    batch_size = 40,
+    validation_data = list(x_test, y_test)
+  )
+   
+   y_pred <- m1 %>% predict(x_test)
+   
+   
+   usos[test_indices, ] %>% 
+        bind_cols(y_pred =  (as.integer(y_pred))) %>% 
+        select(av, y_pred) %>%
+        psych::corr.test() 
+   
+    usos[test_indices, ] %>% 
+        bind_cols(y_pred =  (as.integer(y_pred))) %>% 
+        select(av, y_pred) %>%
+        ggplot(  aes(x = y_pred, y = av ) ) +
+        geom_jitter( alpha = 1/2, aes(color = y_pred)) +
+        geom_smooth(method = "lm", color = "red")
+  
+    
+```
+

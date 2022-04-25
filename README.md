@@ -1,6 +1,4 @@
-## nlp_psicom:
-
-### Tópicos especiais em Avaliação e Medidas II: Inteligência Artificial e Processamento de Linguagem Natural aplicada à Psicometria e Avaliação
+### nlp_psicom: Tópicos especiais em Avaliação e Medidas II: Inteligência Artificial e Processamento de Linguagem Natural aplicada à Psicometria e 
 
 **Universidade São Francisco**  
 **Prof. Ricardo Primi**

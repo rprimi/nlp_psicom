@@ -97,7 +97,7 @@ results <- principal(resp_digfoot[ , 2:7], nfactors = 3, scores = T)
 
 ```
 
-2. Um pouco de álgebra da PC: decomposição da matriz em eigenvaules and eigenvectors (autovalores e autovetores)
+2. Um pouco de álgebra da PC: decomposição da matriz em eigenvalues and eigenvectors (autovalores e autovetores)
 * Ver livro de Psicometria de Wiliam Revele https://personality-project.org/r/book/ Cap. 6
 
 - Decompõe a matriz em autovalores e autovetores
@@ -136,7 +136,7 @@ round(r2 - r, 2)
 
 ```
 
-- o objetico final é tentar reproduzir a matriz usando um numero menor de componentes
+- O objetivo final é tentar reproduzir a matriz usando um número menor de componentes
 _Is it possible to represent this matrix in a more parsimonious way? That is, can we determine the vector f that generated the correlation matrix. (This is sometimes seen as the problem of unscrambling eggs.)_
 
 -  matriz = interação (omelete), componentes e escores fatoriais = efeitos principais (ingredientes)
@@ -150,9 +150,7 @@ mean(r3 - r)
 
 ```
 
-### Calculando Singular value decomposition
-
-
+### Calculando Singular Value decomposition
 ```{r}
 
 library(irlba)
@@ -171,4 +169,3 @@ round(resp_digfoot[ , 2:7] - resp_digfoot2, 2)
 ```
 
 ### Desfio: compare PC com SVD?
-

@@ -1,0 +1,139 @@
+---
+title: "Exercício 1: Processamento básico de textos"
+author: "Ricardo Primi"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+### Tarefa 
+
+Nesse exercício você deverá modificar o código abaixo e rodar todos os passos com um novo banco de dados chamado `usos2.xlsx`. baixe o arquivo desse link: https://github.com/rprimi/nlp_psicom/blob/main/data/usos2.xlsx  
+
+Esse banco contém as respostas para uso alternativos para um **tijolo**. Veja as instruçòes do teste nesse arquivo:
+https://github.com/rprimi/nlp_psicom/blob/main/data/usos_diferentes.pdf  
+
+
+```{r setup, include=FALSE}
+    knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+
+```
+
+### 1. Ler os dados
+```{r}
+library(readxl)
+usos <- read_excel("../data/usos.xlsx")
+
+```
+
+### 2. Ativar bibliotecas
+```{r}
+library(sjmisc)
+library(psych)
+library(skimr)
+library(tidyverse)
+
+library(readxl)
+library(tidytext)
+
+library(scales)
+library(psych)
+
+library(RColorBrewer)  
+library(xlsx)
+
+library(quanteda)
+library(tidytext)
+library(quanteda.textplots)
+
+```
+
+- https://livro.curso-r.com/index.html
+
+### 3. Explorar objetos e base
+- Quantas avaliadores corrigiram cada resposta? 
+```{r}
+names(usos)
+frq(usos$num_correções)
+```
+
+- Quantos examinandos temos?
+```{r}
+v <- unique(usos$id) 
+length(v)
+str(v)
+```
+
+- Qual a distribuição do escores?
+```{r}
+describe(usos$av)
+skim(usos$av)
+sjmisc::descr(usos[, 9])
+
+hist(usos$av)
+ggplot(data = usos, mapping = aes(x=av) ) + geom_histogram(color = "white", binwidth = .5)
+```
+
+
+- Quantas respostas foram mais criaticas ? Visualizando as respostas criativas
+```{r}
+
+frq(usos$av)
+
+
+# Respostas mais criativas 
+usos %>% filter(av > 3) %>% 
+ select(ativi, resposta, av) %>% 
+ arrange(desc(av)) %>% view
+
+# Respostas menos criativsas 
+usos %>% filter(av < 2) %>% 
+ select(ativi, resposta, av) %>% 
+ arrange(av) %>% view
+
+```
+
+### Transformando os textos em uma matriz de dados 
+
+- Tokenizar 
+- Matriz documentos X termos/features (Document Term/Feature Matrix)
+- bag of words
+
+
+- 
+```{r}
+ 
+  tokenized_corpus  <- tokens(usos$resposta,remove_punct = TRUE)
+
+  stopwords <- read_csv(
+    file = "http://www.labape.com.br/rprimi/ds/stopwords.txt", 
+    col_names = FALSE)
+   names(stopwords) = "words"
+ 
+ tokens(usos$resposta, remove_numbers = TRUE, remove_punct = TRUE) 
+
+ tokenized_corpus <- tokens(usos$resposta, remove_punct = TRUE )
+ 
+
+  
+  dfm <- dfm(tokenized_corpus) %>%
+    dfm_sort(decreasing = TRUE, margin = c("features")
+    )
+
+  featfreq(dfm)
+  topfeatures(dfm, 100) 
+  
+  summary(dfm)
+  
+  textplot_wordcloud(
+    dfm, min_count = 4, 
+    random_order = FALSE, 
+    rotation = 0.25,
+    color = RColorBrewer::brewer.pal(8, "Dark2")
+    )  
+  
+  dfm2 <- dfm_trim(dfm, min_termfreq = 2, min_docfreq = 2 ) 
+  
+  
+```
+
+

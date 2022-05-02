@@ -41,9 +41,8 @@ library(quanteda.textplots)
 # tensorflow::install_tensorflow() 
 
 library(keras)
-
-
 library(tensorflow)
+
 tf$constant("Hellow Tensorflow")
 
 ```
@@ -113,20 +112,26 @@ usos <- read_excel("../data/usos.xlsx")
 ```{r}
  reticulate::py_discover_config()
  
+ 
   m1 <- keras_model_sequential() %>%
-          layer_dense( units = 1,  activation = "linear",  input_shape=210)
+         layer_dense( 
+           units = 1,  
+           activation = "linear", 
+           input_shape=210
+         #  kernel_regularizer = regularizer_l2(0.001)
+           )
 
   m1 %>% compile(
-      optimizer = optimizer_rmsprop(),
+      optimizer = "sgd",
       loss = "mse",
       metrics = list("mean_absolute_error")
       )
-
+  
    history_linear <- m1 %>% 
     keras::fit( 
     x_train,
     y_train,
-    epochs =30,
+    epochs = 23,
     batch_size = 40,
     validation_data = list(x_test, y_test)
   )
@@ -135,12 +140,12 @@ usos <- read_excel("../data/usos.xlsx")
    
    
    usos[test_indices, ] %>% 
-        bind_cols(y_pred =  (as.integer(y_pred))) %>% 
+        bind_cols(y_pred =  y_pred) %>% 
         select(av, y_pred) %>%
         psych::corr.test() 
    
     usos[test_indices, ] %>% 
-        bind_cols(y_pred =  (as.integer(y_pred))) %>% 
+        bind_cols(y_pred =  y_pred) %>% 
         select(av, y_pred) %>%
         ggplot(  aes(x = y_pred, y = av ) ) +
         geom_jitter( alpha = 1/2, aes(color = y_pred)) +

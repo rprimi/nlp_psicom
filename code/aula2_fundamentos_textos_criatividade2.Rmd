@@ -7,18 +7,16 @@ output: html_document
 
 
 ```{r setup, include=FALSE}
-    knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
-
+    knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, error = FALSE)
 ```
 
-### 1. Ler os dados
+### 1. Lê os dados
 ```{r}
 library(readxl)
 usos <- read_excel("../data/usos.xlsx")
-
 ```
 
-### 2. Ativar bibliotecas
+### 2. Ativa bibliotecas
 ```{r}
 library(sjmisc)
 library(tidyverse)
@@ -31,65 +29,118 @@ library(quanteda.textplots)
 
 ### 3. Stemaing, calculando TFIDF e criando uma matriz de dados DFM
 
+Usando dplyr e titytext fazemos de uma só vez:
 1. Tokenizar usando o tidytext
-
-```{r}
-
-tokenized_corpus  <- usos %>% 
- arrange(id_unico) %>%
- unnest_tokens(
-  output = word, 
-  input = resposta, 
-  to_lower = TRUE,
-  token = "words")
-
- 
-
-```
 2. Remover stop words
+3. Steming
+
 ```{r}
+
+ library(SnowballC)
+ 
  stopwords <- read_csv(
     file = "http://www.labape.com.br/rprimi/ds/stopwords.txt", 
     col_names = FALSE)
    names(stopwords) = "word"
-   
- tokenized_corpus <- tokenized_corpus %>% 
-    anti_join(stopwords) 
- 
- 
+
+
+ tokenized_corpus  <- usos %>% 
+  arrange(id_unico) %>%
+  
+  # 1. tokenize
+  unnest_tokens(
+   output = word, 
+   input = resposta, 
+   to_lower = TRUE,
+   token = "words"
+   ) %>%
+  
+  # 2. remove stopwords via anti_join
+  anti_join(stopwords) %>%
+  
+  # 3. Steming
+  mutate(stem = wordStem(word, language =  "portuguese"))
+  
+  
+
 ```
 
-3. Steming
-
+3.1 Explora os dados com gráficos de barra e wordcloud
 ```{r}
- library(SnowballC)
-
-tokenized_corpus <- tokenized_corpus %>% 
- mutate(stem = wordStem(word, language =  "portuguese"))
 
  tokenized_corpus  %>% 
-        dplyr::count(word, sort = TRUE) %>%
-        filter(n > 5 ) %>%
-        mutate(words = reorder(word, n)) %>%
-       ggplot(aes(words, n)) +
-        geom_col(alpha = 1/2, color = "blue") +
-        xlab(NULL) +
-        coord_flip()
-    
+  # 1. Conta palavras
+  dplyr::count(word, sort = TRUE) %>%
+  
+  # 2. Filtra palavras com freq maior que 5
+  filter(n > 5 ) %>%
+  
+  # 3. Reordena factor "word" pela frequencia
+  mutate(words = reorder(word, n)) %>%
+  
+  # 4. Gráfico de barras
+  ggplot(aes(words, n)) +
+   geom_col(alpha = 1/2, color = "blue") +
+   xlab(NULL) +
+   coord_flip()
+ 
+ # Agora com stem
+
  tokenized_corpus  %>% 
-        dplyr::count(stem, sort = TRUE) %>%
-        filter(n > 5 ) %>%
-        mutate(stem = reorder(stem, n)) %>%
-       ggplot(aes(stem, n)) +
-        geom_col(alpha = 1/2, color = "purple") +
-        xlab(NULL) +
-        coord_flip()
+  # 1. Conta palavras
+  dplyr::count(stem, sort = TRUE) %>%
+  
+  # 2. Filtra palavras com freq maior que 5
+  filter(n > 5 ) %>%
+  
+  # 3. Reordena factor "word" pela frequencia
+  mutate(stem = reorder(stem, n)) %>%
+  
+  # 4. Gráfico de barras
+  ggplot(aes(stem, n)) +
+   geom_col(alpha = 1/2, color = "purple") +
+   xlab(NULL) +
+   coord_flip()
  
 
-
+  library(wordcloud)
+ 
+ tab <- tokenized_corpus %>% 
+  group_by(word) %>%
+  count(sort = TRUE) 
+ 
+ wordcloud::wordcloud(
+  words = tab$word, freq = tab$n, 
+  colors = brewer.pal(9, "Spectral"),
+  max.words = 100
+    )
+ 
+ tab <- tokenized_corpus %>% 
+  group_by(stem) %>%
+  count(sort = TRUE) 
+ 
+ wordcloud::wordcloud(
+  words = tab$stem, freq = tab$n, 
+  colors = brewer.pal(9, "Set1"),
+  max.words = 100)
+ 
+ rm(tab)
+  
+  
 ```
 
-4. Criando a DTM com TFIDF
+```{r eval=FALSE}
+
+  table(tokenized_corpus$stem, tokenized_corpus$word) %>%
+   as.data.frame() %>% 
+   filter(Freq !=0) %>%
+   arrange(Var1, Var2) %>%
+    openxlsx::write.xlsx(file = "word_stem.xlsx")
+  
+  
+```
+
+4.0 Criando a DTM com TFIDF
 
 Term’s inverse document frequency (idf), which decreases the weight for commonly used words and increases the weight for words that are not used very much in a collection of documents. This can be combined with term frequency to calculate a term’s tf-idf (the two quantities multiplied together), the frequency of a term adjusted for how rarely it is used_ (p. 31)
 
@@ -100,46 +151,135 @@ $$idf(\text{termo}) = \mbox{ln} \frac{n_{documentos}}{n_{documentos.contendo.ter
 
 $idf(\text{term}) = \ln{\left(\frac{n_{\text{documents}}}{n_{\text{documents containing term}}}\right)}$
 
+4.1 Calcula frequencia simples _n_ e _tf_idf_ e explora os tokens mais frequentes 
 
 ```{r}
 
-tokenized_corpus2 <- 
+tokenized_corpus_freq <- 
  tokenized_corpus %>% 
  count(id_unico, stem) %>%
-  bind_tf_idf(stem, id_unico, n)
+ bind_tf_idf(stem, id_unico, n)
 
-
- tokenized_corpus2  %>% 
+tokenized_corpus_freq  %>% 
   group_by(stem) %>%
   summarise(tf_idf = sum(tf_idf)) %>%
-    filter(tf_idf > 20 ) %>%
-    mutate(stem = reorder(stem, tf_idf)) %>%
-       ggplot(aes(stem, tf_idf)) +
-        geom_col(alpha = 1/2, color = "orange") +
-        xlab(NULL) +
-        coord_flip()
+  filter(tf_idf > 20 ) %>%
+  mutate(stem = reorder(stem, tf_idf)) %>%
+  ggplot(aes(stem, tf_idf)) +
+    geom_col(alpha = 1/2, color = "orange") +
+    xlab(NULL) +
+    coord_flip()
 
-
- dfm_matrix <-  tokenized_corpus2 %>%
-    cast_dfm(id_unico, stem, tf_idf)
-
- class(dfm_matrix )
+tab <- tokenized_corpus_freq  %>% 
+  group_by(stem) %>%
+  summarise(tf_idf = sum(tf_idf)) 
  
-  featfreq(dfm_matrix )
-  topfeatures(dfm_matrix, 100) 
-  
-  table(tokenized_corpus$stem, tokenized_corpus$word) %>%
-   as.data.frame() %>% 
-   filter(Freq !=0) %>%
-   arrange(Var1, Var2) %>%
-    openxlsx::write.xlsx(file = "word_stem.xlsx")
-  
-  
-   textplot_wordcloud(
-    dfm_matrix, min_count = 10, 
-    random_order = FALSE, 
-    color = RColorBrewer::brewer.pal(8, "Set1")
-    )  
-  
+
+ # https://github.com/aljrico/harrypotter
+
+ library(harrypotter)
+ colors <-  hp(n = 7, alpha = .9,  option = "HermioneGranger")
+ colors <-  hp(n = 7, alpha = .9,  option = "HarryPotter")
+ colors <-  hp(n = 7, alpha = .9,  option =  "NewtScamander")
+ colors <-  hp(n = 7, alpha = .9,  option =  "LunaLovegood") 
+
+ wordcloud::wordcloud(
+  words = tab$stem, freq = tab$tf_idf, 
+  colors =colors,
+  max.words = 100
+    )
  
 ```
+
+4.2 Cria DTM's 
+
+```{r}
+
+  dfm_freq <-  tokenized_corpus_freq  %>%
+    cast_dfm(id_unico, stem, n)
+  
+  dfm_tfidf <-  tokenized_corpus_freq %>%
+    cast_dfm(id_unico, stem, tf_idf)
+
+  
+  topfeatures(dfm_freq, 50) 
+  topfeatures(dfm_tfidf, 50) 
+  
+  
+  featfreq(dfm_freq)
+  str(featfreq(dfm_tfidf))
+ 
+  library(MetBrewer) 
+  # https://github.com/BlakeRMills/MetBrewer
+  
+  
+ 
+  colors =  met.brewer(name="Homer1",n=8,type= "discrete")
+
+  wordcloud::wordcloud(
+  words = names(featfreq(dfm_tfidf)), freq = featfreq(dfm_tfidf), 
+  colors =colors,
+  max.words = 60)
+ 
+  colors =  met.brewer(name="Egypt",n=4,type= "discrete")
+  
+  wordcloud::wordcloud(
+  words = names(featfreq(dfm_freq)), freq = featfreq(dfm_freq), 
+  colors =colors,
+  max.words = 60)
+ 
+```
+
+### 5. Análise de tópicos e vizualização dos resultados usando LDAvis
+
+$\alpha$ regulates the number of clusters that respondents will belong to (the common approach is to adopt $\alpha$ = 50/k (where k is the number of clusters to be extracted)
+$\delta$ regulates the number of clusters that each footprint will belong to ($\delta$ = 0.1 or 200/n (where n is the number of columns in the respondent- footprint matrix)
+
+- Matriz $\gamma$: documentos x tópicos
+- Matriz $\beta$: termos x tópicos
+
+```{r}
+
+ library(topicmodels)
+ topics <- LDA(round(dfm_tfidf), k=5, method = "Gibbs", control = list(seed=123))
+ 
+ # Usando o pacote broom
+ beta <-  broom::tidy(topics, matrix="beta") 
+ gamma <-  broom::tidy(topics, matrix="gamma")
+ 
+ # Usando o pacote topicos
+ phi <- posterior(topics)$terms %>% as.matrix  # beta
+ theta <- posterior(topics)$topics %>% as.matrix # gamma
+ 
+ beta2 <- beta %>% tidyr::pivot_wider(names_from = term, values_from = beta) %>% select(-topic)
+ gamma2 <- gamma %>% tidyr::pivot_wider(names_from = topic, values_from = gamma)
+ 
+ gamma3 <- as.matrix(gamma2[ , 2:6])
+ dimnames(gamma3)[[1]] <- gamma2$document
+ 
+ vocab <- colnames(phi)
+ vocab2 <- names(featfreq(dfm_tfidf ))
+ vocab == vocab2
+ term.frequency  <- featfreq(dfm_tfidf )
+ 
+  doc_length <-  tokenized_corpus_freq %>% group_by(id_unico) %>%
+    count() %>% pull(n)
+
+  
+  library(LDAvis)
+  json_file <- LDAvis::createJSON(
+   phi =  beta2, 
+   theta = gamma3,
+   vocab = vocab,
+   doc.length = doc_length,
+   term.frequency = term.frequency 
+   )
+ 
+
+  serVis(json_file)
+
+```
+
+
+* Imagem: https://www.tidytextmining.com/topicmodeling.html
+

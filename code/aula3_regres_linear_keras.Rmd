@@ -12,7 +12,6 @@ output: html_document
 ```
 
 
-
 ### 1. Ativar bibliotecas
 
 
@@ -60,7 +59,6 @@ usos <- read_excel("../data/usos.xlsx")
 - 
 ```{r}
  
-  tokenized_corpus  <- tokens(usos$resposta,remove_punct = TRUE)
 
   stopwords <- read_csv(
     file = "http://www.labape.com.br/rprimi/ds/stopwords.txt", 
@@ -68,16 +66,19 @@ usos <- read_excel("../data/usos.xlsx")
    names(stopwords) = "words"
  
 
- tokenized_corpus <- tokens(usos$resposta, remove_punct = TRUE, remove_numbers = TRUE)
- 
-
+ tokenized_corpus <- usos %>% 
+   mutate(resposta = str_to_lower(resposta)) %>%
+   pull(resposta) %>% 
+   tokens(remove_punct = TRUE, remove_numbers = TRUE)
   
   dfm <- dfm(tokenized_corpus) %>%
+    dfm_remove(stopwords$words) %>%
     dfm_sort(decreasing = TRUE, margin = c("features")
     ) %>% 
    dfm_trim(min_termfreq = 2, min_docfreq = 2 ) 
 
- dfm
+
+  dfm
   
   
 ```
@@ -108,17 +109,16 @@ usos <- read_excel("../data/usos.xlsx")
 
 ```
 
-### 5. Modelo com Keras
+### 5. Regressão Linear com Keras
 ```{r}
  reticulate::py_discover_config()
- 
  
   m1 <- keras_model_sequential() %>%
          layer_dense( 
            units = 1,  
            activation = "linear", 
-           input_shape=210
-         #  kernel_regularizer = regularizer_l2(0.001)
+           input_shape=192, 
+          kernel_regularizer = regularizer_l2(0.001)
            )
 
   m1 %>% compile(
@@ -137,6 +137,61 @@ usos <- read_excel("../data/usos.xlsx")
   )
    
    y_pred <- m1 %>% predict(x_test)
+   
+   
+   usos[test_indices, ] %>% 
+        bind_cols(y_pred =  y_pred) %>% 
+        select(av, y_pred) %>%
+        psych::corr.test() 
+   
+    usos[test_indices, ] %>% 
+        bind_cols(y_pred =  y_pred) %>% 
+        select(av, y_pred) %>%
+        ggplot(  aes(x = y_pred, y = av ) ) +
+        geom_jitter( alpha = 1/2, aes(color = y_pred)) +
+        geom_smooth(method = "lm", color = "red")
+  
+    
+```
+
+
+### 6. Rede neural
+```{r}
+
+  m2 <- keras_model_sequential() %>%
+    layer_dense( 
+      units = 10,  
+      activation = "relu", 
+      input_shape=192, 
+      kernel_regularizer = regularizer_l2(0.001)
+      ) %>%
+   layer_dense( 
+     units = 10,  
+     activation = "relu", 
+     kernel_regularizer = regularizer_l2(0.001)
+      ) %>%
+   layer_dense( 
+     units = 1,  
+     activation = "linear", 
+     kernel_regularizer = regularizer_l2(0.001)
+     )
+
+  m2 %>% compile(
+      optimizer = "sgd",
+      loss = "mse",
+      metrics = list("mean_absolute_error")
+      )
+  
+   history_linear <- m2 %>% 
+    keras::fit( 
+    x_train,
+    y_train,
+    epochs = 23,
+    batch_size = 40,
+    validation_data = list(x_test, y_test)
+  )
+   
+   y_pred <- m2 %>% predict(x_test)
    
    
    usos[test_indices, ] %>% 

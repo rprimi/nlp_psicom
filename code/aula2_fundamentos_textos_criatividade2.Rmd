@@ -76,10 +76,10 @@ Usando dplyr e titytext fazemos de uma só vez:
   filter(n > 5 ) %>%
   
   # 3. Reordena factor "word" pela frequencia
-  mutate(words = reorder(word, n)) %>%
+  mutate(word = reorder(word, n)) %>%
   
   # 4. Gráfico de barras
-  ggplot(aes(words, n)) +
+  ggplot(aes(word, n)) +
    geom_col(alpha = 1/2, color = "blue") +
    xlab(NULL) +
    coord_flip()
@@ -103,11 +103,13 @@ Usando dplyr e titytext fazemos de uma só vez:
    coord_flip()
  
 
-  library(wordcloud)
+ library(wordcloud)
  
  tab <- tokenized_corpus %>% 
   group_by(word) %>%
-  count(sort = TRUE) 
+  count(sort = TRUE) %>%
+   
+   
  
  wordcloud::wordcloud(
   words = tab$word, freq = tab$n, 
@@ -217,7 +219,8 @@ tab <- tokenized_corpus_freq  %>%
   colors =  met.brewer(name="Homer1",n=8,type= "discrete")
 
   wordcloud::wordcloud(
-  words = names(featfreq(dfm_tfidf)), freq = featfreq(dfm_tfidf), 
+  words = names(featfreq(dfm_tfidf)), 
+  freq = featfreq(dfm_tfidf), 
   colors =colors,
   max.words = 60)
  
@@ -242,6 +245,12 @@ $\delta$ regulates the number of clusters that each footprint will belong to ($\
 
  library(topicmodels)
  topics <- LDA(round(dfm_tfidf), k=5, method = "Gibbs", control = list(seed=123))
+ 
+ skimr::skim(round(dfm_tfidf))
+ 
+ as.matrix(round(dfm_tfidf)) %>% psych::describe()
+ 
+  map(as.matrix(round(dfm_tfidf)), sjmisc::frq())
  
  # Usando o pacote broom
  beta <-  broom::tidy(topics, matrix="beta") 
@@ -270,12 +279,11 @@ $\delta$ regulates the number of clusters that each footprint will belong to ($\
   json_file <- LDAvis::createJSON(
    phi =  beta2, 
    theta = gamma3,
-   vocab = vocab,
+   vocab = vocab2,
    doc.length = doc_length,
    term.frequency = term.frequency 
    )
  
-
   serVis(json_file)
 
 ```

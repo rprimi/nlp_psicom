@@ -1,0 +1,203 @@
+---
+title: "Regressão linear com Keras"
+author: "Ricardo Primi"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+
+```{r setup, include=FALSE}
+    knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+
+```
+
+
+### 1. Ativar bibliotecas
+
+
+```{r}
+
+library(sjmisc)
+library(psych)
+library(skimr)
+library(tidyverse)
+
+library(readxl)
+library(tidytext)
+
+library(scales)
+library(psych)
+
+library(RColorBrewer)  
+library(xlsx)
+
+library(quanteda)
+library(tidytext)
+library(quanteda.textplots)
+# devtools::install_github("rstudio/keras") 
+
+# keras::install_keras(version =  "2.0.0")
+# tensorflow::install_tensorflow() 
+
+library(keras)
+library(tensorflow)
+
+tf$constant("Hellow Tensorflow")
+
+```
+
+
+### 1. Dividir dados em treino e teste
+
+```{r}
+ 
+
+ set.seed(23)
+ N = dim(dfm_tfidf)[1]
+ indices <- sample(1:N)  
+
+ prop_train <- .80
+ N_train = round(prop_train*N)
+ N_test = N - N_train
+ train_indices <-  indices[1:N_train] 
+ test_indices <-   indices[(N_train+1):N] 
+ 
+ 
+ x_train <- as.matrix(dfm_tfidf[train_indices, ])
+ y_train <- as.matrix(bd_rorschach[train_indices, "A"])
+    
+ x_test <-  as.matrix(dfm_tfidf[test_indices, ])
+ y_test <- -as.matrix(bd_rorschach[test_indices, "A"]) 
+ names(bd_rorschach)
+ 
+ y_train <- as.matrix(bd_rorschach[train_indices, 26:44])
+ y_test <- as.matrix(bd_rorschach[test_indices, 26:44]) 
+ 
+ 
+ 
+```
+
+### 2. Regressão Linear com Keras
+```{r}
+ dim(x_train)
+
+ 
+ 
+  m0 <- keras_model_sequential() %>%
+         layer_dense( 
+           units = 19,  
+           activation = "sigmoid", 
+           input_shape=2271, 
+          kernel_regularizer = regularizer_l2(0.001)
+           )
+
+  m0 %>% compile(
+      optimizer = "sgd",
+      loss = "binary_crossentropy",
+      metrics = c('accuracy', 'binary_crossentropy', 'AUC', 'Precision', 'Recall')
+      )
+  
+   history_linear <- m0 %>% 
+    keras::fit( 
+    x_train,
+    y_train,
+    epochs = 23,
+    batch_size = 40,
+    validation_data = list(x_test, y_test)
+  )
+   
+   y_pred <- m0 %>% predict(x_test)
+   
+ 
+ 
+    
+```
+
+
+
+### 3. Metricas usando o pacote `caret`: **C**lassification And **RE**gression **T**raining
+
+https://topepo.github.io/caret/measuring-performance.html
+
+```{r}
+  library(caret)
+  
+frq(y_test[ , 5])
+  
+ bd_rorschach[, 26:44] %>% map(sjmisc::frq)
+ names( bd_rorschach[, 26:44])
+  
+  
+  cm <- caret::confusionMatrix(
+        data = factor(ifelse(y_pred[ , 5] >= .5, 1,0 ) ),
+        reference =  factor(y_test[ , 5]),
+         positive = "1",
+        mode = "everything"
+      ) %>% print
+
+  cm <- caret::confusionMatrix(
+        data = factor(ifelse(y_pred[ , 1] >= .5, 1,0 ) ),
+        reference =  factor(y_test[ , 1]),
+         positive = "1",
+        mode = "everything"
+      ) %>% print
+
+  
+  
+```
+
+
+### 6. Rede neural
+```{r}
+
+  m2 <- keras_model_sequential() %>%
+    layer_dense( 
+      units = 10,  
+      activation = "relu", 
+      input_shape=192, 
+      kernel_regularizer = regularizer_l2(0.001)
+      ) %>%
+   layer_dense( 
+     units = 10,  
+     activation = "relu", 
+     kernel_regularizer = regularizer_l2(0.001)
+      ) %>%
+   layer_dense( 
+     units = 1,  
+     activation = "linear", 
+     kernel_regularizer = regularizer_l2(0.001)
+     )
+
+  m2 %>% compile(
+      optimizer = "sgd",
+      loss = "mse",
+      metrics = list("mean_absolute_error")
+      )
+  
+   history_linear <- m2 %>% 
+    keras::fit( 
+    x_train,
+    y_train,
+    epochs = 23,
+    batch_size = 40,
+    validation_data = list(x_test, y_test)
+  )
+   
+   y_pred <- m2 %>% predict(x_test)
+   
+   
+   usos[test_indices, ] %>% 
+        bind_cols(y_pred =  y_pred) %>% 
+        select(av, y_pred) %>%
+        psych::corr.test() 
+   
+    usos[test_indices, ] %>% 
+        bind_cols(y_pred =  y_pred) %>% 
+        select(av, y_pred) %>%
+        ggplot(  aes(x = y_pred, y = av ) ) +
+        geom_jitter( alpha = 1/2, aes(color = y_pred)) +
+        geom_smooth(method = "lm", color = "red")
+  
+    
+```
+

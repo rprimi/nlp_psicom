@@ -1,0 +1,265 @@
+---
+title: "Criando word embedinsgs com a base usos diferentes"
+author: "Ricardo Primi"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+  knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, error = FALSE)
+```
+
+### Library e referência
+
+https://smltar.com/embeddings.html#motivatingsparse
+
+
+
+```{r}
+library(tidyverse)
+library(tidytext)
+```
+
+### Metodo de Moody (2017)
+https://multithreaded.stitchfix.com/blog/2017/10/18/stop-using-word2vec/
+https://github.com/cemoody/lda2vec
+```{r}
+
+tidy_usos <- usos %>%
+  select(id, resposta) %>%
+  unnest_tokens(word, resposta) %>%
+  add_count(word) %>%
+  filter(n >=5) %>%
+  select(-n)
+
+nested_words <-tidy_usos %>%
+  nest(words = c(word))
+
+
+```
+
+1. Slider windows 
+
+```{r}
+slide_windows <- function(tbl, window_size) {
+  skipgrams <- slider::slide(
+    tbl, 
+    ~.x, 
+    .after = window_size - 1, 
+    .step = 1, 
+    .complete = TRUE
+  )
+  
+  safe_mutate <- safely(mutate)
+  
+  out <- map2(skipgrams,
+              1:length(skipgrams),
+              ~ safe_mutate(.x, window_id = .y))
+  
+  out %>%
+    transpose() %>%
+    pluck("result") %>%
+    compact() %>%
+    bind_rows()
+}
+```
+
+### Calcula PMI
+*Calculate how often words occur on their own, and how often words occur together with other words. We do this using the point-wise mutual information (PMI), a measure of association that measures exactly what we described in the previous sentence; it’s the logarithm of the probability of finding two words together, normalized for the probability of finding each of the words alone. We use PMI to measure which words occur together more often than expected based on how often they occurred on their own.* 
+
+https://smltar.com/embeddings.html#motivatingsparse
+
+```{r}
+
+library(widyr)
+library(furrr)
+
+plan(multisession)  ## for parallel processing
+
+tidy_pmi <- nested_words %>%
+  mutate(words = future_map(words, slide_windows, 4L)) %>%
+  unnest(words) %>%
+  unite(window_id, id, window_id) %>%
+  pairwise_pmi(word, window_id)
+
+tidy_pmi
+
+
+```
+
+### Determina os *word vectors* a partir do PMI usando SVD
+
+```{r}
+tidy_word_vectors <- tidy_pmi %>%
+  widely_svd(
+    item1, item2, pmi,
+    nv = 50, maxit = 1000
+  )
+
+
+
+```
+
+### Acha palavras similares usando a medida *cossine similarity*
+
+```{r}
+nearest_neighbors <- function(df, token) {
+  df %>%
+    widely(
+      ~ {
+        y <- .[rep(token, nrow(.)), ]
+        res <- rowSums(. * y) / 
+          (sqrt(rowSums(. ^ 2)) * sqrt(sum(.[token, ] ^ 2)))
+        
+        matrix(res, ncol = 1, dimnames = list(x = names(res)))
+      },
+      sort = TRUE
+    )(item1, dimension, value) %>%
+    select(-item2)
+}
+```
+
+```{r}
+tidy_word_vectors %>%
+  nearest_neighbors("carrinho")
+```
+
+
+```{r}
+tidy_word_vectors %>%
+  filter(dimension <= 10) %>%
+  group_by(dimension) %>%
+  top_n(12, abs(value)) %>%
+  ungroup() %>%
+  mutate(item1 = reorder_within(item1, value, dimension)) %>%
+  ggplot(aes(item1, value, fill = dimension)) +
+  geom_col(alpha = 0.8, show.legend = FALSE) +
+  facet_wrap(~dimension, scales = "free_y", ncol = 4) +
+  scale_x_reordered() +
+  coord_flip() +
+  labs(
+    x = NULL,
+    y = "Value",
+    title = "First 10  principal components for cardbox alternate uses",
+    subtitle = paste("Top words contributing to the components that explain",
+                     "the most variation")
+  )
+
+
+```
+
+```{r}
+word_matrix <- tidy_usos %>%
+  count(id, word) %>%
+  cast_sparse(id, word, n)
+
+embedding_matrix <- tidy_word_vectors %>%
+  cast_sparse(item1, dimension, value)
+
+doc_matrix <- word_matrix %*% embedding_matrix
+
+dim(doc_matrix)
+```
+
+https://cran.r-project.org/web/packages/wordsalad/wordsalad.pdf
+
+### Visualizando as palavras
+
+```{r}
+
+library(ggrepel)
+library(MetBrewer)
+library(PNWColors)
+
+unique(tidy_word_vectors$item1) 
+
+embedding_matrix2 <- as.matrix(embedding_matrix)
+
+
+library(Rtsne)
+tsne_out <- Rtsne( embedding_matrix2, perplexity = 20  )
+
+
+cores <- met.brewer(name="Klimt", n=12, type="continuous")
+
+
+ tsne_out$Y %>% 
+  as.tibble() %>%
+  set_names(c("y", "x")) %>%
+  bind_cols(words = dimnames(embedding_matrix2)[[1]]) %>%
+ ggplot(mapping = aes(y = y, x = x)) +
+   geom_point()  +
+   geom_text_repel(
+    aes(label=words), 
+    size=4.2, vjust=-.12,
+    max.overlaps = 30
+   ) +
+ #  scale_color_manual(values) + 
+   theme(legend.position = "right") +
+   coord_cartesian(clip="off")
+  # theme_solarized()
+
+
+
+```
+
+
+### Visualizando os sujeitos
+
+```{r}
+
+doc_matrix2 <- as.matrix(doc_matrix)
+
+dimnames(doc_matrix2 )
+duplicated(doc_matrix2) %>% frq
+duplic <- duplicated(doc_matrix2)
+doc_matrix2 <-doc_matrix2[!duplic, ]
+
+doc_matrix3 <- tibble(id = dimnames(doc_matrix2)[[1]] ) %>% bind_cols(doc_matrix2)
+
+doc_matrix3 <- doc_matrix3 %>% 
+ left_join(
+ { usos %>% group_by(id) %>% 
+   summarise(
+    score = mean(av, na.rm=TRUE),
+    respostas = paste0(resposta, collapse = " + ")) %>%
+   ungroup() %>% 
+   mutate(id = as.character(id)) 
+  }
+ )
+
+doc_matrix3$respostas
+
+names(doc_matrix3)
+
+library(Rtsne)
+tsne_out <- Rtsne( doc_matrix3[ , 2:51], perplexity = 5 )
+
+cores <- met.brewer(name="Klimt", n=5, type="continuous")
+cores <- pnw_palette("Bay",5,  type="continuous")
+  getPalette = colorRampPalette(brewer.pal(name = "Spectral", n =11))
+
+ f1 <- tsne_out$Y %>% 
+  as.tibble() %>%
+  set_names(c("y", "x")) %>%
+  bind_cols( doc_matrix3[ , 52:53]) %>%
+  mutate(respostas =  str_wrap(respostas, 23)) %>%
+  ggplot(
+   mapping = aes(y = y, x = x, color = score,  text = respostas) 
+  ) +
+   geom_point()  +
+ #  geom_text_repel(
+ #  aes(label=doc), 
+ #  size=4.2, vjust=-.12,
+ #   max.overlaps = 30
+ #  ) +
+  scale_colour_gradientn(colours = cores) + 
+   theme(legend.position = "right") +
+   coord_cartesian(clip="off") +
+  theme_minimal()
+  
+  library(plotly)
+  ggplotly(f1, tooltip = c("respostas"))
+ 
+```
+

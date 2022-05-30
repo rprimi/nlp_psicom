@@ -1,0 +1,55 @@
+---
+title: "PC_SVD"
+author: "Ricardo Primi"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+
+1. Lê os dados
+- Visitas (cliques) de 7 sujeitos em 6 sites
+```{r}
+library(readxl)
+
+data<- read_excel("../data/resp_footprintxlsx.xlsx")
+names(data)
+str(data)
+
+```
+```{r}
+
+data2 = scale(data[ , 2:7])
+
+sds = purrr::map_dbl(data[ , 2:7], sd)
+
+str(data)
+
+attributes(data$google)
+
+library(psych)
+results <- principal(data2, nfactors = 3, scores = T, rotate = "none")
+
+results
+
+results$scores
+results$values
+
+
+res_svd <-  svd(data2, nv=3) 
+u <- res_svd$u
+v <- res_svd$v
+s = diag(res_svd$d)
+
+data_svd <- u[, 1:3] %*% s[1:3, 1:3] %*% t(v)
+
+round(data_svd - data2, 2)
+
+data_pc <-  results$scores  %*% t(results$loadings)
+
+round(data_pc  - data2, 2)
+
+round(data_pc  - data_svd, 2)
+
+
+```
+

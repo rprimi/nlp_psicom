@@ -1,0 +1,111 @@
+---
+title: "log_loss"
+author: "Ricardo Primi"
+date: '`r Sys.Date()`'
+output: html_document
+---
+
+
+```{r echo=FALSE, warn.conflict = FALSE}
+ knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, error = FALSE, warn.conflict = FALSE, quietly = TRUE)
+
+library(tidyverse,  warn.conflicts = FALSE)
+library(kableExtra,  warn.conflicts = FALSE)
+library(ISLR)
+```
+
+### Métricas - "Melhor f(x)" segundo o quê?
+
+Queremos a $f(x)$ que **erre menos**.
+
+Exemplo de medida de erro: **R**oot **M**ean **S**quared **E**rror.
+
+$$
+RMSE = \sqrt{\frac{1}{N}\sum(y_i - \hat{y_i})^2}
+$$
+
+
+
+```{r}
+set.seed(1)
+email <- tibble(
+  pts_exclamacao = sample.int(300, 1000, replace = TRUE),
+  x = runif(1000) - 0.5,
+  spam = rbinom(1000, 1, prob = 1/(1 + exp(-(-5.9 + 1/23*pts_exclamacao + 2 * x)))),
+    `Regressão Linear` = predict(lm(spam~pts_exclamacao)),
+    `Regressão Logística` = predict(glm(spam~pts_exclamacao, family = binomial()), type = "response")
+  ) 
+
+email %>%
+  sample_n(100) %>%
+  gather("modelo", "pred", starts_with("Reg")) %>%
+  ggplot(aes(x = pts_exclamacao, y = spam)) + 
+  geom_point(size = 5, alpha = 0.2)  +
+  geom_line(size = 3, aes(y = pred, colour = modelo), show.legend = FALSE) +
+  facet_wrap(~ modelo) +
+  theme_minimal(24)+
+  labs(
+    title = "Y = 1: E-mail é Spam", x = "Qtd de pontos de exclamação"
+  ) +
+  scale_y_continuous(breaks = c(0, 1), labels = c("Y = 0", "Y = 1")) +
+  theme(axis.title.y = element_blank()) +
+  scale_color_brewer(palette = "Set1")
+```
+
+### Regressão Logística - Custo
+
+A **função de custo** da Regressão Logística chama-se *log-loss* (ou *deviance* ou *Binary Cross-Entropy*):
+
+$$D = \frac{1}{N}\sum[y_i \log\hat{y_i} + (1 - y_i )\log(1 - \hat{y_i})]$$ 
+
+
+$$L_{\log}(y, p) = -(y \log(p) + (1 - y) \log (1 - p))$$
+
+```{r}
+x <-seq(0, 1, .1)
+df<-data.frame(x)
+ggplot(df,aes(x)) + 
+ stat_function(fun=function(x) log(x), color = "red") +  
+ stat_function(fun=function(x) log(1 - x), color = "blue") +  
+ scale_x_continuous(breaks = x, limits = c(0,1))  +
+ theme_minimal()
+ 
+ 
+
+```
+
+```{r}
+cm <- tribble(
+  ~Predito, ~`Neg     `, ~`Pos `,
+  "Neg",    "TN", "FN",
+  "Pos",    "FP", "TP"
+) %>% 
+  kable() %>%
+  kable_styling(c("bordered", "basic"), full_width = FALSE, font_size = 20) %>%
+  add_header_above(c(" " = 1, "Observado" = 2), background = "white") %>%
+  collapse_rows(columns = 1, valign = "top") %>%
+  kableExtra::row_spec(0:2, background = "white", align = "center") %>%
+  kableExtra::column_spec(1, "3in", bold = TRUE) %>%
+  kableExtra::column_spec(2, "3in") %>%
+  kableExtra::column_spec(3, "2in")
+
+cm
+```
+
+
+$$
+\begin{array}{lcc}
+\mbox{accuracy}  & = & \frac{TP + TN}{TP + TN + FP + FN}\\\\
+&   & \\\\
+\mbox{precision} & = & \frac{TP}{TP + FP}\\\\
+&   & \\\\
+\mbox{recall}    & = & \frac{TP}{TP + FN} \\\\
+&   & \\\\
+\mbox{F1 score}       & =& \frac{2}{1/\mbox{precision} + 1/\mbox{recall}}\\\\
+&   & \\\\
+\mbox{TPR}    & = & \frac{TP}{TP + FN} \\\\
+&   & \\\\
+\mbox{FPR}    & = & \frac{FP}{FP + TN}
+\end{array}
+$$
+

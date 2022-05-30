@@ -1,0 +1,145 @@
+---
+title: "Rorschach_nlp"
+author: "Ricardo Primi"
+date: "5/16/2022"
+output: html_document
+---
+```{r}
+library(readxl)
+bd_rorschach <- read_excel("db.GiPianowski_n100_nonpatients.patients_with.verbatim_april.2022.xlsx")
+
+```
+0. Importar o banco
+1. Arrumar o banco (selecionar as respostas e y's e limpar os textos)
+2. Tokenizar 
+3. Testar modelos 
+  Base (bag of words, com TF_IDF, nn)
+  LSTM word embeddings treinados
+  LSTM com wordembeddings pré treinados
+  BERT
+
+
+1. Criar resposta: resposta + inquérito
+```{r}
+names(bd_rorschach)
+
+paste0(bd_rorschach$`Response Phase verbatim`, bd_rorschach$`Clarification Phase Verbatim`, collapse = " ")
+
+bd_rorschach$`Response Phase verbatim`
+bd_rorschach$`Clarification Phase Verbatim`
+
+bd_rorschach$resposta <- apply(bd_rorschach[ ,19:20], MARGIN = 1, paste0, collapse = " ")
+
+
+```
+2. Filtra respostas NA e separa uma base com ID e resposta
+```{r}
+
+bd_rorschach <- bd_rorschach %>% 
+ filter(!is.na(`Response Phase verbatim`))
+
+bd_rorschach$rown_id <- rownames(bd_rorschach)
+
+```
+
+
+3. Tokenizar
+```{r}
+ library(tidyverse)
+ library(tidytext)
+ library(SnowballC)
+ 
+
+ tokenized_corpus  <- bd_rorschach %>% 
+  select(rown_id, resposta) %>%
+  unnest_tokens(
+   output = tokens, 
+   input = resposta, 
+   to_lower = TRUE,
+   token = "words"
+   )
+ 
+ tokenized_corpus  %>% 
+  # 1. Conta palavras
+  dplyr::count(tokens, sort = TRUE)
+
+
+```
+
+4. Remover palavras 
+```{r}
+ 
+ stopwords <- read_csv(
+    file = "http://www.labape.com.br/rprimi/ds/stopwords.txt", 
+    col_names = FALSE)
+ 
+ names(stopwords) = "word"
+
+ tokenized_corpus <- tokenized_corpus %>%
+  # 1. remove stopwords via anti_join
+  anti_join(stopwords, by = c("tokens"="word")) %>%
+  # 2. Steming
+  mutate(tokens_stem = wordStem(tokens, language =  "portuguese"))
+ 
+ tokenized_corpus  %>% 
+  # 1. Conta palavras
+  dplyr::count(tokens_stem, sort = TRUE)
+ 
+  library(wordcloud)
+ 
+ tab <- tokenized_corpus %>% 
+  group_by(tokens_stem) %>%
+  count(sort = TRUE) 
+ 
+ library(RColorBrewer)  
+ 
+ wordcloud::wordcloud(
+  words = tab$tokens_stem, freq = tab$n, 
+  colors = brewer.pal(9, "Spectral"),
+  max.words = 100
+    )
+ 
+ 
+
+```
+5. Segunda rodada de remoção de palavras
+```{r}
+
+ stopwords <- stopwords %>% rbind("acq") 
+ stopwords <- stopwords %>% rbind("parec") 
+
+ tokenized_corpus <- tokenized_corpus %>%
+  # 1. remove stopwords via anti_join
+  anti_join(stopwords, by = c("tokens_stem"="word"))
+
+```
+
+6. Calcula tf_idf
+```{r}
+names(tokenized_corpus)
+
+tokenized_corpus_freq <- tokenized_corpus %>% 
+ count(rown_id, tokens_stem) %>%
+ bind_tf_idf(tokens_stem, rown_id, n)
+
+```
+
+7. Cria DTM
+```{r}
+  library(quanteda)
+  dfm_tfidf <-  tokenized_corpus_freq %>%
+    cast_dfm(rown_id, tokens_stem, tf_idf)
+
+  dfm_tfidf
+  
+   topfeatures(dfm_tfidf, 50) 
+   
+   dim( dfm_tfidf )
+  
+```
+
+8. Baseline via regressão (outro arquivo)
+```{r}
+ 
+```
+

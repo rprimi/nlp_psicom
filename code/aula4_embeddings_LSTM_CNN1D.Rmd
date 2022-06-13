@@ -1,0 +1,422 @@
+---
+title: "Usando embeddings com LSTM"
+author: "Ricardo Primi"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+
+```{r setup, include=FALSE}
+    knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+
+```{r}
+
+library(sjmisc)
+library(psych)
+library(skimr)
+library(tidyverse)
+
+library(readxl)
+library(tidytext)
+
+library(scales)
+library(psych)
+
+library(RColorBrewer)  
+library(xlsx)
+
+library(quanteda)
+library(tidytext)
+library(quanteda.textplots)
+
+library(keras)
+library(tensorflow)
+
+```
+
+
+### Prepara sequencias
+
+```{r}
+
+ tokenizer_sequences <- text_tokenizer(
+     num_words = 595,
+     lower = TRUE )  %>% 
+     fit_text_tokenizer(usos$resposta)
+
+ sequences <- 
+  texts_to_sequences(tokenizer_sequences, usos$resposta)
+ 
+ sequences[1:10]
+ usos$resposta[1:10]
+ 
+ word_index <- tokenizer_sequences$word_index
+
+
+
+ cat("Found", length(word_index), "unique tokens.\n")
+ 
+  hist(map_int(sequences, length))
+ 
+length(sequences[[3]])
+```
+
+
+```{r}
+
+ hist(usos$av)
+
+ set.seed(23)
+ N = dim(usos)[1]
+ indices <- sample(1:N)  
+
+ prop_train <- .80
+ N_train = round(prop_train*N)
+ N_test = N - N_train
+ train_indices <-  indices[1:N_train] 
+ test_indices <-   indices[(N_train+1):N] 
+ 
+ maxlen <- 6
+ x_train <- pad_sequences(sequences[train_indices], maxlen = maxlen)
+ x_test <- pad_sequences(sequences[ test_indices], maxlen = maxlen)    
+
+ y_train <- usos$av[train_indices] 
+ y_test <-  usos$av[test_indices] 
+    
+ dim(x_train)
+ dim(x_test)
+ 
+
+```
+
+#### Especifica e treina os modelos
+1. Os ambeddings serão treinados junto com o modelo
+```{r}
+
+# recurrent_dropout = 0.4, dropout =.5
+
+  m_lstm <- keras_model_sequential() %>%
+   layer_embedding(
+       input_dim = 595 + 1,
+       output_dim = 30,
+       input_length = maxlen
+       ) %>%
+   bidirectional(layer_lstm(units = 64)) %>%
+   layer_dense(units = 1,  kernel_regularizer = regularizer_l2(0.001)) 
+
+
+    m_lstm %>% compile(
+        optimizer = "rmsprop",
+        loss = "mse",
+        metrics = c("mae")
+    )
+
+    summary(m_lstm)
+
+    history <- m_lstm %>% fit(
+      x_train,
+      y_train,
+      epochs = 30,
+      batch_size = 32,
+      validation_data = list(x_test, y_test)
+    )
+
+
+```
+
+2. Usando embeddings pré treinados
+```{r}
+    mqxlen = 6
+    max_words = 595
+    embedding_dim = 600
+
+# bidirectional lstm model    
+   # 
+   m_lstm_transf <- keras_model_sequential() %>%
+     layer_embedding(
+         input_dim = max_words +1, 
+         output_dim = embedding_dim , 
+         weights = list(embedding_matrix), 
+         input_length = maxlen, 
+         trainable = FALSE ) %>%
+    bidirectional(layer_lstm(units = 64, recurrent_dropout = 0.4, dropout =.4)) %>%
+    layer_dense(units = 1,  kernel_regularizer = regularizer_l2(0.001)) 
+
+    summary(m_lstm_transf)
+    
+    m_lstm_transf %>% compile(
+        optimizer = "rmsprop",
+        loss = "mse",
+        metrics = c("mae")
+    )
+
+  
+
+    history <- m_lstm_transf %>% fit(
+      x_train,
+      y_train,
+      epochs = 30,
+      batch_size = 32,
+      validation_data = list(x_test, y_test)
+    )
+    
+ 
+```
+
+
+3. Usando um modelo com CNNs 1D
+
+```{r}
+    
+   max_words = 595
+   embedding_dim =  600 
+
+   cnn_input <- layer_input(shape=list(maxlen), dtype = "int32")
+      
+   input_embedding <-  cnn_input %>%
+     layer_embedding(
+         input_dim = max_words +1, 
+         output_dim = embedding_dim , 
+         weights = list(embedding_matrix), 
+         input_length = maxlen, 
+         trainable = FALSE )
+   
+    
+   bigram <- input_embedding %>%
+    layer_conv_1d( 
+      filters = 50,
+      kernel_size = 2, 
+      padding = "valid", 
+      activation = "relu"
+     ) %>%
+    layer_global_max_pooling_1d() %>%
+    layer_dropout(rate = 0.44) 
+   
+     
+   trigram <- input_embedding %>%
+    layer_conv_1d( 
+      filters = 50,
+      kernel_size = 3, 
+      padding = "valid", 
+      activation = "relu"
+     ) %>%
+    layer_global_max_pooling_1d() %>%
+    layer_dropout(rate = 0.44)
+    
+   tetragram <- input_embedding %>%
+    layer_conv_1d( 
+      filters = 50,
+      kernel_size = 4, 
+      padding = "valid", 
+      activation = "relu"
+     ) %>%
+    layer_global_max_pooling_1d() %>%
+    layer_dropout(rate = 0.44)
+   
+   
+    residual <-  input_embedding  %>% 
+     layer_conv_1d( 
+      filters = 50,
+      kernel_size = 1, 
+      padding = "valid",
+      strides = 1
+     ) %>%  layer_global_max_pooling_1d()
+    
+    bigram <- layer_add(list(bigram, residual))   
+    trigram <- layer_add(list(trigram, residual))   
+    tetragram <-  layer_add(list(tetragram, residual))  
+    
+    merged <- layer_concatenate(list(bigram, trigram,  tetragram )) 
+
+  output <- merged %>% 
+    layer_dense(units = 50,  kernel_regularizer = regularizer_l2(0.001)) %>%
+    layer_dropout(rate = 0.35) %>% 
+    layer_dense(units = 1, kernel_regularizer = regularizer_l2(0.001))
+  
+ 
+   m_cnn1d <-
+    keras::keras_model(inputs = cnn_input,  outputs = output )
+
+
+    m_cnn1d %>% compile(
+        optimizer = "adam",
+        loss = "mse",
+        metrics = c("mae")
+    )
+    
+    
+    history <-  m_cnn1d %>% fit(
+      list(x_train, x_train),
+      y_train,
+      epochs =30,
+      batch_size = 43,
+      validation_data = list(x_test, y_test)
+    )
+  
+  
+   
+```
+
+
+
+
+#### Expoora os resultados
+
+```{r}
+
+    y_pred1 <- m_lstm %>% predict(x_test)
+    y_pred2 <- m_lstm_transf %>% predict(x_test)
+    y_pred3 <-  m_cnn1d %>% predict(x_test)
+  
+     test_data <- bind_cols( 
+     usos[test_indices, ],
+     y_pred1 = y_pred1[ , 1],
+      y_pred2 =  y_pred2[ , 1]
+     )
+    
+    
+    test_data <- bind_cols( 
+     usos[test_indices, ],
+     y_pred1 = y_pred1[ , 1],
+     y_pred2 =  y_pred2[ , 1],
+     y_pred3 =  y_pred3[ , 1])
+    
+    test_data$y_pred_ensambl = apply( test_data[ , 10:12], 
+                                      MARGIN = 1, FUN = mean) 
+     
+     test_data[, 9:13] %>%  corr.test() 
+   
+      test_data %>%
+    ggplot( 
+        aes(x = y_pred_ensambl, y = av) ) +
+        geom_point( alpha = 1/2) +
+        geom_smooth(method = "lm") +
+        geom_smooth(color = "red")
+  
+   usos[test_indices, ] %>% 
+    bind_cols(y_pred = y_pred) %>%
+       select(id, av, y_pred) %>%
+       group_by(id) %>%
+       summarise(across(.fns = mean)) %>%
+       ggplot(aes(x = y_pred, y = av) ) +
+        geom_point( alpha = 1/2) +
+        geom_smooth(method = "lm") +
+        geom_smooth(color = "red")
+   
+    usos[test_indices, ] %>% 
+    bind_cols(y_pred = y_pred) %>%
+       select(id, av, y_pred) %>%
+       group_by(id) %>%
+       summarise(across(.fns = mean)) %>%
+       select(-id) %>%
+         corr.test() 
+    
+    test_data %>% 
+       select(id, av, y_pred1:y_pred_ensambl) %>%
+       group_by(id) %>%
+       summarise(across(.fns = mean)) %>%
+       select(-id) %>%
+         corr.test() 
+  
+     usos[test_indices, ] %>% 
+    bind_cols(y_pred = y_pred) %>%
+       select(id, av, y_pred) %>%
+       group_by(id) %>%
+       summarise(across(.fns = mean)) %>%  
+       pull(y_pred) %>% hist
+    
+
+
+```
+
+#### Embeddings pre-treinados
+
+* Word embeddings da base de vetores em português do NILC (http://www.nilc.icmc.usp.br/nilc/index.php/repositorio-de-word-embeddings-do-nilc#)
+
+
+
+```{r}
+   library(readr)
+  
+ # Lê word embeddings
+  nilc_wv <- read_delim(
+    file = "glove_s300.txt", 
+    delim = " ",quote="", 
+    skip = 1,  
+    col_names = FALSE, 
+    progress = TRUE)
+  
+  View(nilc_wv[2000:2020, ])
+  
+  names(nilc_wv)[1]<-"words"
+  names(nilc_wv)[2:301]<-paste("V", 1:300, sep= "")
+  
+ 
+ # Lê word embeddings de 600d
+  load("/Users/rprimi/Dropbox (Personal)/Ciencia_de_dados_psicom/nilc_wv_glove_600d.RData")
+  
+  
+ # Cria vocab 
+
+ vocab <- tibble(
+  index = word_index,
+  word = names(word_index)
+ ) %>% 
+ left_join(nilc_wv_glove_600d)
+ 
+ vocab %>% view
+ is.na(vocab$d1) %>% frq
+
+ nilc_wv_glove_600d$word
+ 
+
+# Função adaptada do livro de Chalot 
+  
+ prepare_embedding_matrix <- function(num_words, embedding_dim, word_index) {
+   
+   max_num_words = num_words
+   embedding_matrix <- matrix(0L, nrow = num_words+1, ncol = embedding_dim)
+   
+   for (word in names(word_index)) {
+     index <- word_index[[word]]
+     if (index >= max_num_words)
+       next
+     embedding_vector <- as.numeric(vocab[vocab$word == word, 3:602])
+     if (!is.null(embedding_vector)) {
+       # words not found in embedding index will be all-zeros.
+       embedding_matrix[index+1,] <- embedding_vector
+     }
+   }
+   embedding_matrix
+  }
+ 
+# Cria embedding matrix
+ embedding_matrix <- prepare_embedding_matrix(
+     num_words = 595, 
+     embedding_dim = 600,
+     word_index = word_index)
+
+# Preenche linhas vazias com um número randômico   
+    rnd <- runif(n=sum(is.na(embedding_matrix)), min = 0, max = .04)
+    embedding_matrix[is.na(embedding_matrix)] <- rnd 
+
+# Testa     
+   table(is.na(embedding_matrix))
+
+# Resolve bug da primeira linha  (needs to be zero, don't know why ver 
+# https://github.com/rstudio/keras/issues/302)   
+   dim(embedding_matrix)
+   embedding_matrix[1, ]
+   embedding_matrix[2, ]
+   
+   embedding_matrix[, 1]
+   
+  str(embedding_matrix)
+    
+
+```
+
+
+

@@ -107,7 +107,7 @@ Usando dplyr e titytext fazemos de uma só vez:
  
  tab <- tokenized_corpus %>% 
   group_by(word) %>%
-  count(sort = TRUE) %>%
+  count(sort = TRUE) 
    
    
  
@@ -126,7 +126,7 @@ Usando dplyr e titytext fazemos de uma só vez:
   colors = brewer.pal(9, "Set1"),
   max.words = 100)
  
- rm(tab)
+
   
   
 ```

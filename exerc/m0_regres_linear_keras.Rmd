@@ -38,11 +38,12 @@ library(quanteda.textplots)
 
 # keras::install_keras(version =  "2.0.0")
 # tensorflow::install_tensorflow() 
-
+#tf$constant("Hellow Tensorflow")
+#
 library(keras)
 library(tensorflow)
+ 
 
-tf$constant("Hellow Tensorflow")
 
 ```
 
@@ -51,7 +52,6 @@ tf$constant("Hellow Tensorflow")
 
 ```{r}
  
-
  set.seed(23)
  N = dim(dfm_tfidf)[1]
  indices <- sample(1:N)  
@@ -81,20 +81,18 @@ tf$constant("Hellow Tensorflow")
 ```{r}
  dim(x_train)
 
- 
- 
   m0 <- keras_model_sequential() %>%
          layer_dense( 
            units = 19,  
            activation = "sigmoid", 
-           input_shape=2271, 
+           input_shape=2271,
           kernel_regularizer = regularizer_l2(0.001)
            )
 
   m0 %>% compile(
       optimizer = "sgd",
       loss = "binary_crossentropy",
-      metrics = c('accuracy', 'binary_crossentropy', 'AUC', 'Precision', 'Recall')
+      metrics = c('accuracy')
       )
   
    history_linear <- m0 %>% 
@@ -108,8 +106,6 @@ tf$constant("Hellow Tensorflow")
    
    y_pred <- m0 %>% predict(x_test)
    
- 
- 
     
 ```
 

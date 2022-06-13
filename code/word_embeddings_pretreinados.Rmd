@@ -1,0 +1,132 @@
+---
+title: "Criando word embedinsgs com a base usos diferentes"
+author: "Ricardo Primi"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+  knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, error = FALSE)
+```
+
+### Library e referência
+
+https://smltar.com/embeddings.html#motivatingsparse
+
+
+
+```{r}
+library(tidyverse)
+library(tidytext)
+```
+
+
+### Visualizando as palavras
+
+```{r}
+
+library(ggrepel)
+library(MetBrewer)
+library(PNWColors)
+library(RColorBrewer)
+
+unique(tidy_word_vectors$item1) 
+
+embedding_matrix2 <- as.matrix(embedding_matrix)
+
+
+library(Rtsne)
+tsne_out <- Rtsne( embedding_matrix[2:596, ], perplexity = 30  )
+
+
+cores <- met.brewer(name="Klimt", n=12, type="continuous")
+
+
+ tsne_out$Y %>% 
+  as.tibble() %>%
+  set_names(c("y", "x")) %>%
+  bind_cols(words = names(word_index)) %>%
+ ggplot(mapping = aes(y = y, x = x)) +
+   geom_point()  +
+   geom_text_repel(
+    aes(label=words), 
+    size=4.2, vjust=-.12,
+    max.overlaps = 30
+   ) +
+ #  scale_color_manual(values) + 
+   theme(legend.position = "right") +
+   coord_cartesian(clip="off")
+  # theme_solarized()
+
+
+
+```
+
+
+### Visualizando os sujeitos
+
+```{r}
+ 
+ usos2 <-  map(sequences, ~as.data.frame(embedding_matrix)[.x, ]) %>% 
+  map_df(~apply(.x, MARGIN = 2, FUN = mean))
+
+ names(usos2)
+ 
+ usos3 <- usos %>% bind_cols(usos2) %>%
+    select(id, av, resposta, V1:V600) %>%
+  group_by(id) %>% 
+  summarise(
+    score = mean(av, na.rm=TRUE),
+    respostas = paste0(resposta, collapse = " + "),
+    across(V1:V600, mean)
+    ) %>%
+   ungroup() 
+ 
+ dimnames(doc_matrix2 )
+ usos3 %>% select(V1:V600) %>% duplicated %>%frq
+ duplic <-  usos3 %>% select(V1:V600) %>% duplicated
+ usos3 <-usos3[!duplic, ]
+
+
+ library(Rtsne)
+
+ tsne_out <- usos3 %>% select(V1:V600) %>% Rtsne(perplexity = 50 )
+
+ cores <- met.brewer(name="Klimt", n=5, type="continuous")
+ cores <- pnw_palette("Bay",5,  type="continuous")
+ getPalette = colorRampPalette(brewer.pal(name = "Spectral", n =11))
+
+ f1 <- tsne_out$Y %>% 
+  as.tibble() %>%
+  set_names(c("y", "x")) %>%
+  bind_cols( usos3) %>%
+  mutate(respostas =  str_wrap(respostas, 23)) %>%
+  ggplot(
+   mapping = aes(y = y, x = x, color = score,  text = respostas) 
+  ) +
+   geom_point()  +
+ #  geom_text_repel(
+ #  aes(label=doc), 
+ #  size=4.2, vjust=-.12,
+ #   max.overlaps = 30
+ #  ) +
+  scale_colour_gradientn(colours = cores) + 
+   theme(legend.position = "right") +
+   coord_cartesian(clip="off") +
+  theme_minimal()
+  
+  library(plotly)
+  ggplotly(f1, tooltip = c("respostas"))
+  
+   tsne_out$Y %>% 
+  as.tibble() %>%
+  set_names(c("y", "x")) %>%
+  bind_cols( usos3)  %>%
+   select(x, y, score ) %>%
+   corr.test()
+  
+
+  
+ 
+```
+

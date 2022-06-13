@@ -34,7 +34,7 @@ bd_rorschach$resposta <- apply(bd_rorschach[ ,19:20], MARGIN = 1, paste0, collap
 ```
 2. Filtra respostas NA e separa uma base com ID e resposta
 ```{r}
-
+library(tidyverse)
 bd_rorschach <- bd_rorschach %>% 
  filter(!is.na(`Response Phase verbatim`))
 
@@ -136,10 +136,5 @@ tokenized_corpus_freq <- tokenized_corpus %>%
    
    dim( dfm_tfidf )
   
-```
-
-8. Baseline via regressão (outro arquivo)
-```{r}
- 
 ```
 

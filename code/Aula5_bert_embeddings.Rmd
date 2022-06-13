@@ -1,0 +1,65 @@
+---
+title: "BERT"
+author: "Ricardo Primi"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+
+```{r setup, include=FALSE}
+    knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+
+```{r}
+devtools::install_github("oscarkjell/text")
+```
+
+
+```{r}
+
+library(sjmisc)
+library(psych)
+library(skimr)
+library(tidyverse)
+
+library(readxl)
+library(xlsx)
+
+library(scales)
+
+
+library(RColorBrewer)  
+
+
+library(quanteda)
+library(tidytext)
+library(quanteda.textplots)
+
+library(text)
+
+library(keras)
+library(tensorflow)
+
+
+```
+
+
+
+### 2. Ler os dados
+```{r}
+usos <- read_excel("../data/usos.xlsx")
+
+```
+
+```{r}
+textModels()
+
+bert_embeddigns <- textEmbed(
+ usos$resposta, model ="neuralmind/bert-base-portuguese-cased",
+ )
+saveRDS(bert_embeddigns, "bert_embeddigns.rds")
+
+```
+
+

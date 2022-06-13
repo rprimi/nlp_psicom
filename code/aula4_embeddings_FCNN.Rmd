@@ -1,0 +1,187 @@
+---
+title: "Baseline asando embeddings + regressão lasso e FCNN"
+author: "Ricardo Primi"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+
+```{r setup, include=FALSE}
+    knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+
+```
+
+
+### 1. Ativar bibliotecas
+
+```{r}
+# devtools::install_github("rstudio/keras") 
+# keras::install_keras(version =  "2.0.0")
+# tensorflow::install_tensorflow() 
+
+```
+
+
+```{r}
+
+library(sjmisc)
+library(psych)
+library(skimr)
+library(tidyverse)
+
+library(readxl)
+library(tidytext)
+
+library(scales)
+library(psych)
+
+library(RColorBrewer)  
+library(xlsx)
+
+library(quanteda)
+library(tidytext)
+library(quanteda.textplots)
+
+library(keras)
+library(tensorflow)
+
+```
+
+
+* Leitura dos dados e criação dos embeddings a partir do `word_embeddings.Rmd`
+
+
+### 2. baseline: modelo ded regresão e FCNN a partir dos embeddings dos sujeitos
+
+- Usando `doc_matrix3` e dividingo os dados em treino e teste
+```{r}
+ hist(doc_matrix3$score)
+
+ set.seed(23)
+ N = dim(doc_matrix3)[1]
+ indices <- sample(1:N)  
+
+ prop_train <- .80
+ N_train = round(prop_train*N)
+ N_test = N - N_train
+ train_indices <-  indices[1:N_train] 
+ test_indices <-   indices[(N_train+1):N] 
+ 
+ names(doc_matrix3)
+ 
+ 
+ x_train <- as.matrix(doc_matrix3[train_indices, 2:31])
+ y_train <- as.matrix(doc_matrix3[train_indices, "score"])
+    
+ x_test <-  as.matrix(doc_matrix3[test_indices, 2:31])
+ y_test <- -as.matrix(doc_matrix3[test_indices, "score"]) 
+ 
+ dim(x_train)
+
+  
+  
+```
+* Regressão
+```{r}
+ reticulate::py_discover_config()
+ 
+  m1 <- keras_model_sequential() %>%
+    layer_dense( 
+    units = 1,  
+    activation = "linear", 
+    input_shape=30, 
+    kernel_regularizer = regularizer_l2(0.001)
+   )
+
+  m1 %>% compile(
+   optimizer = "sgd",
+   loss = "mse",
+   metrics = list("mean_absolute_error")
+  )
+  
+   history_linear <- m1 %>% 
+    keras::fit( 
+    x_train,
+    y_train,
+    epochs = 30,
+    batch_size = 40,
+    validation_data = list(x_test, y_test)
+  )
+   
+   y_pred <- m1 %>% predict(x_test)
+   
+   
+   
+   doc_matrix3[test_indices, ] %>% 
+        bind_cols(y_pred =  y_pred) %>% 
+        select(score, y_pred) %>%
+        psych::corr.test() 
+    
+    doc_matrix3[test_indices, ] %>% 
+        bind_cols(y_pred =  y_pred) %>% 
+        select(score, y_pred) %>%
+        ggplot(  aes(x = y_pred, y = score ) ) +
+        geom_jitter( alpha = 1/2, aes(color = score)) +
+        geom_smooth(method = "lm", color = "red")
+  
+    
+```
+
+
+* FCNN
+```{r}
+
+  m2 <- keras_model_sequential() %>%
+    layer_dense( 
+      units = 10,  
+      activation = "relu", 
+      input_shape=30, 
+      kernel_regularizer = regularizer_l2(0.001)
+      ) %>%
+   layer_dense( 
+     units = 10,  
+     activation = "relu", 
+     kernel_regularizer = regularizer_l2(0.001)
+      ) %>%
+   layer_dense( 
+     units = 1,  
+     activation = "linear", 
+     kernel_regularizer = regularizer_l2(0.001)
+     )
+
+  m2 %>% compile(
+      optimizer = "sgd",
+      loss = "mse",
+      metrics = list("mean_absolute_error")
+      )
+  
+   history_linear <- m2 %>% 
+    keras::fit( 
+    x_train,
+    y_train,
+    epochs = 23,
+    batch_size = 40,
+    validation_data = list(x_test, y_test)
+  )
+   
+  y_pred <- m2 %>% predict(x_test)
+   
+   
+   
+   doc_matrix3[test_indices, ] %>% 
+        bind_cols(y_pred =  y_pred) %>% 
+        select(score, y_pred) %>%
+        psych::corr.test() 
+    
+    doc_matrix3[test_indices, ] %>% 
+        bind_cols(y_pred =  y_pred) %>% 
+        select(score, y_pred) %>%
+        ggplot(  aes(x = y_pred, y = score ) ) +
+        geom_jitter( alpha = 1/2, aes(color = score)) +
+        geom_smooth(method = "lm", color = "red")
+  
+  
+    
+```
+
+

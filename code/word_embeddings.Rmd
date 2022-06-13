@@ -23,7 +23,12 @@ library(tidytext)
 ### Metodo de Moody (2017)
 https://multithreaded.stitchfix.com/blog/2017/10/18/stop-using-word2vec/
 https://github.com/cemoody/lda2vec
+
+
 ```{r}
+library(readxl)
+usos <- read_excel("../data/usos.xlsx")
+
 
 tidy_usos <- usos %>%
   select(id, resposta) %>%
@@ -35,6 +40,7 @@ tidy_usos <- usos %>%
 nested_words <-tidy_usos %>%
   nest(words = c(word))
 
+str(nested_words)
 
 ```
 
@@ -93,10 +99,8 @@ tidy_pmi
 tidy_word_vectors <- tidy_pmi %>%
   widely_svd(
     item1, item2, pmi,
-    nv = 50, maxit = 1000
+    nv = 30, maxit = 1000
   )
-
-
 
 ```
 
@@ -159,6 +163,8 @@ embedding_matrix <- tidy_word_vectors %>%
 doc_matrix <- word_matrix %*% embedding_matrix
 
 dim(doc_matrix)
+
+dim(embedding_matrix)
 ```
 
 https://cran.r-project.org/web/packages/wordsalad/wordsalad.pdf
@@ -170,6 +176,7 @@ https://cran.r-project.org/web/packages/wordsalad/wordsalad.pdf
 library(ggrepel)
 library(MetBrewer)
 library(PNWColors)
+library(RColorBrewer)
 
 unique(tidy_word_vectors$item1) 
 
@@ -207,11 +214,11 @@ cores <- met.brewer(name="Klimt", n=12, type="continuous")
 ### Visualizando os sujeitos
 
 ```{r}
-
+library(sjmisc)
 doc_matrix2 <- as.matrix(doc_matrix)
 
 dimnames(doc_matrix2 )
-duplicated(doc_matrix2) %>% frq
+duplicated(doc_matrix2) %>%frq
 duplic <- duplicated(doc_matrix2)
 doc_matrix2 <-doc_matrix2[!duplic, ]
 
@@ -233,16 +240,17 @@ doc_matrix3$respostas
 names(doc_matrix3)
 
 library(Rtsne)
-tsne_out <- Rtsne( doc_matrix3[ , 2:51], perplexity = 5 )
+
+tsne_out <- Rtsne( doc_matrix3[ , 2:24], perplexity = 5 )
 
 cores <- met.brewer(name="Klimt", n=5, type="continuous")
 cores <- pnw_palette("Bay",5,  type="continuous")
-  getPalette = colorRampPalette(brewer.pal(name = "Spectral", n =11))
+  getPalette = ?colorRampPalette(brewer.pal(name = "Spectral", n =11))
 
  f1 <- tsne_out$Y %>% 
   as.tibble() %>%
   set_names(c("y", "x")) %>%
-  bind_cols( doc_matrix3[ , 52:53]) %>%
+  bind_cols( doc_matrix3) %>%
   mutate(respostas =  str_wrap(respostas, 23)) %>%
   ggplot(
    mapping = aes(y = y, x = x, color = score,  text = respostas) 
